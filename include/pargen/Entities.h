@@ -10,6 +10,7 @@ struct Terminal {
     std::string repr_ = "";
     bool operator==(const Terminal &other) const;
     bool operator!=(const Terminal &other) const;
+    bool operator<(const Terminal &other) const;
 };
 
 struct NonTerminal {

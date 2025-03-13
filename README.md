@@ -2,5 +2,5 @@
 
 Currently recognizable grammars:
  - [x] SLR
- - [ ] LR(1)
+ - [x] LR(1)
  - [ ] LALR(1)

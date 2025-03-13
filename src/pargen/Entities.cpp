@@ -11,6 +11,13 @@ bool Terminal::operator!=(const Terminal &other) const {
     return !(*this == other);
 }
 
+bool Terminal::operator<(const Terminal &other) const {
+    if (repr_.empty() != other.repr_.empty()) {
+        return repr_.empty() < other.repr_.empty();
+    }
+    return name_ < other.name_;
+}
+
 bool NonTerminal::operator==(const NonTerminal &other) const {
     return name_ == other.name_;
 }

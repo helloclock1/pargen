@@ -6,22 +6,25 @@
 #include <optional>
 #include <set>
 #include <span>
+#include <tuple>
 #include <unordered_map>
 
 #include "Entities.h"
 
 struct Item {
-    Item(size_t rule_number, size_t dot_pos, const Grammar &grammar);
+    Item(size_t rule_number, size_t dot_pos, Terminal lookahead,
+         const Grammar &grammar);
 
     size_t rule_number_;
     size_t dot_pos_;
+    Terminal lookahead_;
     const Grammar &grammar_;
     // dot_pos_ = i means that dot is placed before i-th token,
     // next token is on position i respectively
 
     friend bool operator<(const Item &a, const Item &b) {
-        return a.rule_number_ < b.rule_number_ ||
-               (a.rule_number_ == b.rule_number_ && a.dot_pos_ < b.dot_pos_);
+        return std::tie(a.rule_number_, a.dot_pos_, a.lookahead_) <
+               std::tie(b.rule_number_, b.dot_pos_, b.lookahead_);
     }
 
     bool DotAtEnd() const {
@@ -93,9 +96,6 @@ private:
     std::map<Token, std::set<Terminal>> first_;
     void ComputeFirst();
     std::set<Terminal> FirstForSequence(std::vector<Token> seq);
-
-    std::unordered_map<NonTerminal, std::set<Terminal>> follow_;
-    void ComputeFollow();
 
     std::set<Item> Closure(const std::set<Item> &items);
     State Goto(State state, Token next);
