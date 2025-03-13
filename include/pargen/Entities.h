@@ -5,13 +5,14 @@
 #include <vector>
 
 struct Terminal {
-    std::string name_ = "";
+    std::string name_;
+    std::string repr_;
     bool operator==(const Terminal &other) const;
     bool operator!=(const Terminal &other) const;
 };
 
 struct NonTerminal {
-    std::string name_ = "";
+    std::string name_;
     bool operator==(const NonTerminal &other) const;
     bool operator!=(const NonTerminal &other) const;
 };

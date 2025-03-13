@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <variant>
 
+#include "Automaton.h"
 #include "Entities.h"
 
 CodeGenerator::CodeGenerator(const std::string &folder, ActionTable &at,
@@ -42,6 +43,7 @@ void CodeGenerator::GenerateTypes() {
     out << "\n";
     out << "struct Terminal {\n";
     out << "    std::string name;\n";
+    out << "    std::string repr = \"\";\n";
     out << "    bool operator==(const Terminal &other) const;\n";
     out << "    bool operator!=(const Terminal &other) const;\n";
     out << "};\n";
@@ -121,7 +123,7 @@ void CodeGenerator::GenerateTypes() {
     out << "    size_t value = 0;\n";
     out << "};\n";
     out << "\n";
-    out << "using ActionTable = std::vector<std::unordered_map<Terminal, "
+    out << "using ActionTable = std::vector<std::unordered_map<std::string, "
            "Action>>;\n";
     out << "using GotoTable = std::unordered_map<size_t, "
            "std::unordered_map<NonTerminal, size_t>>;\n";
@@ -188,8 +190,13 @@ void CodeGenerator::GenerateLexer() {
         }
     }
     for (const Terminal &t : tokens) {
-        out << "\"" << t.name_ << "\"" << "\t\t"
-            << "{ tokens.push_back(Terminal{yytext}); }\n";
+        if (t.repr_.empty()) {
+            out << "\"" << t.name_ << "\"" << "\t"
+                << "{ tokens.push_back(Terminal{yytext}); }\n";
+        } else {
+            out << t.repr_ << "\t" << "{ tokens.push_back(Terminal{\""
+                << t.name_ << "\", yytext}); }\n";
+        }
     }
     out << "\n";
     out << "%%\n";
@@ -211,6 +218,8 @@ void CodeGenerator::GenerateParser() {
     out << "\n";
     out << "#include \"Types.h\"\n";
     out << "\n";
+    out << "std::string QualName(Token token);\n";
+    out << "\n";
     out << "class ParserTables {\n";
     out << "public:\n";
     out << "    static const ActionTable &GetActionTable() {\n";
@@ -220,8 +229,7 @@ void CodeGenerator::GenerateParser() {
         size_t j = 0;
         for (const auto &[terminal, action] : at_[i]) {
             out << "                ";
-            out << "{Terminal{\"" << terminal.name_
-                << "\"}, Action{ActionType::";
+            out << "{\"" << terminal << "\", Action{ActionType::";
             switch (action.type_) {
                 case ActionType::ACCEPT:
                     out << "ACCEPT";
@@ -333,7 +341,21 @@ void CodeGenerator::GenerateParser() {
     out << "#include \"Parser.h\"\n";
     out << "#include \"Types.h\"";
     out << "\n";
+    out << "#include <iostream>\n";
     out << "#include <stdexcept>\n";
+    out << "\n";
+    out << "std::string QualName(Token token) {\n";
+    out << "    if (std::holds_alternative<Terminal>(token)) {\n";
+    out << "        Terminal t = std::get<Terminal>(token);\n";
+    out << "        if (t.repr.empty()) {\n";
+    out << "            return \"T_\" + t.name;\n";
+    out << "        } else {\n";
+    out << "            return \"R_\" + t.name;\n";
+    out << "        }\n";
+    out << "    } else {\n";
+    out << "        return \"NT_\" + std::get<NonTerminal>(token).name;\n";
+    out << "    }\n";
+    out << "}\n";
     out << "\n";
     out << "Parser::Parser() {\n";
     out << "}\n";
@@ -348,15 +370,19 @@ void CodeGenerator::GenerateParser() {
     out << "    bool done = false;\n";
     out << "    while (!done) {\n";
     out << "        size_t s = state_stack_.top();\n";
-    out << "        Action action = action_[s][a];\n";
+    out << "        Action action = action_[s][QualName(a)];\n";
+    out << "        std::cout << \"visiting \" << s << \" \" << action.value "
+           "<< std::endl;\n";
     out << "        switch (action.type) {\n";
     out << "            case ActionType::SHIFT:\n";
+    out << "                std::cout << \"shift\" << std::endl;\n";
     out << "                symbol_stack_.push(a);\n";
     out << "                state_stack_.push(action.value);\n";
     out << "                seq_.pop();\n";
     out << "                a = seq_.top();\n";
     out << "                break;\n";
     out << "            case ActionType::REDUCE: {\n";
+    out << "                std::cout << \"reduce\" << std::endl;\n";
     out << "                Rule rule = g_[action.value];\n";
     out << "                for (size_t i = 0; i < rule.prod.size(); ++i) {\n";
     out << "                    symbol_stack_.pop();\n";

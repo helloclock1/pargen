@@ -12,6 +12,19 @@ bool IsNonTerminal(const Token &token) {
     return std::holds_alternative<NonTerminal>(token);
 }
 
+std::string QualName(Token token) {
+    if (std::holds_alternative<Terminal>(token)) {
+        Terminal t = std::get<Terminal>(token);
+        if (t.repr_.empty()) {
+            return "T_" + t.name_;
+        } else {
+            return "R_" + t.name_;
+        }
+    } else {
+        return "NT_" + std::get<NonTerminal>(token).name_;
+    }
+}
+
 ParserGenerator::ParserGenerator(const Grammar &g) : g_(g) {
     RetrieveTokens();
     BuildCanonicalCollection();
@@ -78,21 +91,22 @@ void ParserGenerator::BuildActionTable() {
                 if (IsTerminal(next_token)) {
                     size_t next_state_j =
                         state_to_number_[Goto(states_[i], next_token)];
-                    action_[i][std::get<Terminal>(next_token)] =
+                    action_[i][QualName(std::get<Terminal>(next_token))] =
                         Action{ActionType::SHIFT, next_state_j};
                 }
             } else {
                 if (item.rule_number_ != 0) {
                     NonTerminal lhs = g_[item.rule_number_].lhs;
                     for (const Terminal &t : follow_[lhs]) {
-                        if (action_[i].find(t) != action_[i].end()) {
+                        if (action_[i].find(QualName(t)) != action_[i].end()) {
                             throw std::runtime_error("reduce/reduce conflict");
                         }
-                        action_[i][t] =
+                        action_[i][QualName(t)] =
                             Action{ActionType::REDUCE, item.rule_number_};
                     }
                 } else {
-                    action_[i][Terminal{"$"}] = Action{ActionType::ACCEPT};
+                    action_[i][QualName(Terminal{"$"})] =
+                        Action{ActionType::ACCEPT};
                 }
             }
         }
@@ -103,7 +117,7 @@ void ParserGenerator::BuildActionTable() {
                 continue;
             }
             Terminal t = std::get<Terminal>(token);
-            Action e = action_[i][t];
+            Action e = action_[i][QualName(t)];
             switch (e.type_) {
                 case ActionType::SHIFT:
                     break;

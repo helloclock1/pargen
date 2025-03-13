@@ -64,9 +64,11 @@ struct Action {
 };
 
 // TODO(helloclock): maybe rewrite to umap + hash function
-using ActionTable = std::vector<std::unordered_map<Terminal, Action>>;
+using ActionTable = std::vector<std::unordered_map<std::string, Action>>;
 using GotoTable =
     std::unordered_map<size_t, std::unordered_map<NonTerminal, size_t>>;
+
+std::string QualName(Token token);
 
 class ParserGenerator {
 public:
