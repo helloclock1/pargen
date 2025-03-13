@@ -181,21 +181,16 @@ void CodeGenerator::GenerateLexer() {
     out << "\n";
     out << "%%\n";
     out << "\n";
-    std::set<Terminal> tokens;
-    for (const Rule &rule : g_) {
-        for (const Token &token : rule.prod) {
-            if (std::holds_alternative<Terminal>(token)) {
-                tokens.insert(std::get<Terminal>(token));
+    for (const Token &token : g_.tokens_) {
+        if (std::holds_alternative<Terminal>(token)) {
+            Terminal t = std::get<Terminal>(token);
+            if (t.repr_.empty()) {
+                out << "\"" << t.name_ << "\"" << "\t"
+                    << "{ tokens.push_back(Terminal{yytext}); }\n";
+            } else {
+                out << t.repr_ << "\t" << "{ tokens.push_back(Terminal{\""
+                    << t.name_ << "\", yytext}); }\n";
             }
-        }
-    }
-    for (const Terminal &t : tokens) {
-        if (t.repr_.empty()) {
-            out << "\"" << t.name_ << "\"" << "\t"
-                << "{ tokens.push_back(Terminal{yytext}); }\n";
-        } else {
-            out << t.repr_ << "\t" << "{ tokens.push_back(Terminal{\""
-                << t.name_ << "\", yytext}); }\n";
         }
     }
     out << "\n";
@@ -310,15 +305,19 @@ void CodeGenerator::GenerateParser() {
     out << "    void Clear();\n";
     out << "\n";
     out << "    Grammar g_ = {\n";
-    for (const Rule &rule : g_) {
+    for (const Rule &rule : g_.rules_) {
         out << "        {\n";
-        out << "            \"" << rule.lhs.name_ << "\",\n";
+        out << "            NonTerminal{\"" << rule.lhs.name_ << "\"},\n";
         out << "            {\n";
         for (const Token &token : rule.prod) {
             out << "                ";
             if (std::holds_alternative<Terminal>(token)) {
-                out << "Terminal{\"" << std::get<Terminal>(token).name_
-                    << "\"},\n";
+                Terminal t = std::get<Terminal>(token);
+                out << "Terminal{\"" << t.name_ << "\"";
+                if (!t.repr_.empty()) {
+                    out << ", \"" << t.repr_ << "\"";
+                }
+                out << "},\n";
             } else {
                 out << "NonTerminal{\"" << std::get<NonTerminal>(token).name_
                     << "\"},\n";
@@ -341,7 +340,6 @@ void CodeGenerator::GenerateParser() {
     out << "#include \"Parser.h\"\n";
     out << "#include \"Types.h\"";
     out << "\n";
-    out << "#include <iostream>\n";
     out << "#include <stdexcept>\n";
     out << "\n";
     out << "std::string QualName(Token token) {\n";
@@ -371,18 +369,14 @@ void CodeGenerator::GenerateParser() {
     out << "    while (!done) {\n";
     out << "        size_t s = state_stack_.top();\n";
     out << "        Action action = action_[s][QualName(a)];\n";
-    out << "        std::cout << \"visiting \" << s << \" \" << action.value "
-           "<< std::endl;\n";
     out << "        switch (action.type) {\n";
     out << "            case ActionType::SHIFT:\n";
-    out << "                std::cout << \"shift\" << std::endl;\n";
     out << "                symbol_stack_.push(a);\n";
     out << "                state_stack_.push(action.value);\n";
     out << "                seq_.pop();\n";
     out << "                a = seq_.top();\n";
     out << "                break;\n";
     out << "            case ActionType::REDUCE: {\n";
-    out << "                std::cout << \"reduce\" << std::endl;\n";
     out << "                Rule rule = g_[action.value];\n";
     out << "                for (size_t i = 0; i < rule.prod.size(); ++i) {\n";
     out << "                    symbol_stack_.pop();\n";

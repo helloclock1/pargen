@@ -4,14 +4,9 @@
 #include <iostream>
 #include <istream>
 #include <string>
-#include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 #include "Entities.h"
-
-using GrammarGraph =
-    std::unordered_map<NonTerminal, std::unordered_set<NonTerminal>>;
 
 class GrammarParser {
 public:
@@ -31,8 +26,6 @@ private:
 
     void ParseLine(const std::string &s);
 
-    void TopologicalSort();
-
     std::istream *in_;
-    Grammar rules_;
+    Grammar g_;
 };

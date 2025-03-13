@@ -1,11 +1,14 @@
 #include "Entities.h"
 
 bool Terminal::operator==(const Terminal &other) const {
+    if (repr_.empty() + other.repr_.empty() == 1) {
+        return false;
+    }
     return name_ == other.name_;
 }
 
 bool Terminal::operator!=(const Terminal &other) const {
-    return name_ != other.name_;
+    return !(*this == other);
 }
 
 bool NonTerminal::operator==(const NonTerminal &other) const {

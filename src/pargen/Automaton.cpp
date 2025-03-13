@@ -26,7 +26,6 @@ std::string QualName(Token token) {
 }
 
 ParserGenerator::ParserGenerator(const Grammar &g) : g_(g) {
-    RetrieveTokens();
     BuildCanonicalCollection();
     ComputeFirst();
     ComputeFollow();
@@ -42,16 +41,6 @@ GotoTable ParserGenerator::GetGotoTable() const {
     return goto_;
 }
 
-void ParserGenerator::RetrieveTokens() {
-    for (const Rule &rule : g_) {
-        tokens_.insert(rule.lhs);
-        for (const Token &token : rule.prod) {
-            tokens_.insert(token);
-        }
-    }
-    tokens_.insert(Terminal{"$"});
-}
-
 void ParserGenerator::BuildCanonicalCollection() {
     states_ = {Closure({Item{0, 0, g_}})};
     state_to_number_[states_[0]] = 0;
@@ -61,7 +50,7 @@ void ParserGenerator::BuildCanonicalCollection() {
         changed = false;
         std::set<State> new_states;
         for (const State &state : states_) {
-            for (const Token &token : tokens_) {
+            for (const Token &token : g_.tokens_) {
                 State goto_token_state = Goto(state, token);
                 if (!goto_token_state.empty() &&
                     c_set.find(goto_token_state) == c_set.end() &&
@@ -82,6 +71,7 @@ void ParserGenerator::BuildCanonicalCollection() {
 void ParserGenerator::BuildActionTable() {
     action_.resize(states_.size());
     // iterate through all items in all states
+    size_t total = 0;
     for (size_t i = 0; i < states_.size(); ++i) {
         // i --- state number
         for (const Item &item : states_[i]) {
@@ -91,6 +81,7 @@ void ParserGenerator::BuildActionTable() {
                 if (IsTerminal(next_token)) {
                     size_t next_state_j =
                         state_to_number_[Goto(states_[i], next_token)];
+                    ++total;
                     action_[i][QualName(std::get<Terminal>(next_token))] =
                         Action{ActionType::SHIFT, next_state_j};
                 }
@@ -101,32 +92,15 @@ void ParserGenerator::BuildActionTable() {
                         if (action_[i].find(QualName(t)) != action_[i].end()) {
                             throw std::runtime_error("reduce/reduce conflict");
                         }
+                        ++total;
                         action_[i][QualName(t)] =
                             Action{ActionType::REDUCE, item.rule_number_};
                     }
                 } else {
+                    ++total;
                     action_[i][QualName(Terminal{"$"})] =
                         Action{ActionType::ACCEPT};
                 }
-            }
-        }
-    }
-    for (size_t i = 0; i < states_.size(); ++i) {
-        for (const Token &token : tokens_) {
-            if (IsNonTerminal(token)) {
-                continue;
-            }
-            Terminal t = std::get<Terminal>(token);
-            Action e = action_[i][QualName(t)];
-            switch (e.type_) {
-                case ActionType::SHIFT:
-                    break;
-                case ActionType::REDUCE:
-                    break;
-                case ActionType::ACCEPT:
-                    break;
-                case ActionType::ERROR:
-                    break;
             }
         }
     }
@@ -134,7 +108,7 @@ void ParserGenerator::BuildActionTable() {
 
 void ParserGenerator::BuildGotoTable() {
     for (size_t i = 0; i < states_.size(); ++i) {
-        for (const Token &token : tokens_) {
+        for (const Token &token : g_.tokens_) {
             if (IsTerminal(token)) {
                 continue;
             }
@@ -149,7 +123,7 @@ void ParserGenerator::BuildGotoTable() {
 }
 
 void ParserGenerator::ComputeFirst() {
-    for (const Token &token : tokens_) {
+    for (const Token &token : g_.tokens_) {
         if (IsTerminal(token)) {
             first_[token] = {std::get<Terminal>(token)};
         } else {
@@ -159,7 +133,7 @@ void ParserGenerator::ComputeFirst() {
     bool changed = true;
     while (changed) {
         changed = false;
-        for (const Rule &rule : g_) {
+        for (const Rule &rule : g_.rules_) {
             bool include_eps = true;
             for (const Token &token : rule.prod) {
                 size_t prev_size = first_[rule.lhs].size();
@@ -216,7 +190,7 @@ void ParserGenerator::ComputeFollow() {
     bool changed = true;
     while (changed) {
         changed = false;
-        for (const Rule &rule : g_) {
+        for (const Rule &rule : g_.rules_) {
             for (size_t i = 0; i < rule.prod.size(); ++i) {
                 if (IsTerminal(rule.prod[i])) {
                     continue;
@@ -255,7 +229,7 @@ std::set<Item> ParserGenerator::Closure(const std::set<Item> &items) {
             }
             Token next_token = g_[state.rule_number_].prod[state.dot_pos_];
             if (IsNonTerminal(next_token)) {
-                for (size_t i = 0; i < g_.size(); ++i) {
+                for (size_t i = 0; i < g_.rules_.size(); ++i) {
                     Item to_add{i, 0, g_};
                     if (!closure.contains(to_add) &&
                         !new_items.contains(to_add) &&

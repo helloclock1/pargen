@@ -86,7 +86,6 @@ public:
 
 private:
     // TODO(helloclock): too much stuff here, rewrite/split
-    void RetrieveTokens();
     void BuildCanonicalCollection();
     void BuildActionTable();
     void BuildGotoTable();
@@ -102,7 +101,6 @@ private:
     State Goto(State state, Token next);
 
     Grammar g_;
-    std::set<Token> tokens_;
 
     std::map<State, size_t> state_to_number_;
     std::vector<State> states_;

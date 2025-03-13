@@ -1,5 +1,6 @@
 #pragma once
 
+#include <set>
 #include <string>
 #include <variant>
 #include <vector>
@@ -23,7 +24,11 @@ namespace std {
 template <>
 struct hash<Terminal> {
     size_t operator()(const Terminal &t) const {
-        return hash<string>()("t" + t.name_);
+        if (t.repr_.empty()) {
+            return hash<string>()("t" + t.name_);
+        } else {
+            return hash<string>()("r" + t.name_);
+        }
     }
 };
 
@@ -56,4 +61,16 @@ struct Rule {
 };
 
 bool GrammarComparator(const Rule &a, const Rule &b);
-using Grammar = std::vector<Rule>;
+// using Grammar = std::vector<Rule>;
+struct Grammar {
+    std::vector<Rule> rules_;
+    std::set<Token> tokens_;
+
+    Rule &operator[](size_t i) {
+        return rules_[i];
+    }
+
+    const Rule &operator[](size_t i) const {
+        return rules_[i];
+    }
+};
