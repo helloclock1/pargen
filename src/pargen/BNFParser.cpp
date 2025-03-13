@@ -1,7 +1,6 @@
 #include "BNFParser.h"
 
 #include <stdexcept>
-#include <variant>
 
 #include "Entities.h"
 

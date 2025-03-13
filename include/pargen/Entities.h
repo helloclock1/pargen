@@ -7,7 +7,7 @@
 
 struct Terminal {
     std::string name_;
-    std::string repr_;
+    std::string repr_ = "";
     bool operator==(const Terminal &other) const;
     bool operator!=(const Terminal &other) const;
 };

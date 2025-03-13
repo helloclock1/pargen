@@ -13,6 +13,7 @@ public:
     GrammarParser(std::istream *in);
 
     void Parse();
+    void Print();
     const Grammar &Get() const;
 
 private:
