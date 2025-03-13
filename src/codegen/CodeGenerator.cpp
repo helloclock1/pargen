@@ -358,6 +358,7 @@ void CodeGenerator::GenerateParser() {
     out << "Parser::Parser() {\n";
     out << "}\n";
     out << "\n";
+    // TODO(helloclock): add epsilon-string support
     out << "void Parser::Parse(const std::vector<Terminal> &stream) {\n";
     out << "    Clear();\n";
     out << "    for (const Terminal &token : stream | std::views::reverse) {\n";

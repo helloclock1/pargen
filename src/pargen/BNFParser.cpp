@@ -73,6 +73,8 @@ void GrammarParser::AssertIsNonTerminal(const std::string &s) {
 }
 
 // TODO(helloclock): rewrite for more "rigorous" parsing
+// TODO(helloclock): add better epsilon-string support
+// (maybe separate token for it like EPS)
 void GrammarParser::ParseLine(const std::string &s) {
     std::vector<std::string> sides = Split(s, "::=");
     if (sides.size() != 2) {

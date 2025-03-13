@@ -1,3 +1,4 @@
+// TODO(helloclock): add epsilon-string support
 #include "Automaton.h"
 
 Item::Item(size_t rule_number, size_t dot_pos, Terminal lookahead,
@@ -32,15 +33,6 @@ std::string QualName(Token token) {
 ParserGenerator::ParserGenerator(const Grammar &g) : g_(g) {
     g_.tokens_.insert(Terminal{"$"});
     ComputeFirst();
-    std::cout << "total tokens: " << g_.tokens_.size() << std::endl;
-    size_t sz = Closure({Item{0, 0, Terminal{"$"}, g_}}).size();
-    std::cout << "I0 closure size: " << sz << std::endl;
-    Item a{0, 0, Terminal{"a"}, g_};
-    Item b{0, 0, Terminal{"b"}, g_};
-    bool alb = a < b;
-    bool bla = b < a;
-    std::cout << (alb ? "a < b" : "a /< b") << " and "
-              << (bla ? "b < a" : "b /< a") << std::endl;
     BuildCanonicalCollection();
     BuildActionTable();
     BuildGotoTable();
@@ -79,7 +71,6 @@ void ParserGenerator::BuildCanonicalCollection() {
         }
         c_set.insert(new_states.begin(), new_states.end());
     }
-    std::cout << "total states: " << states_.size() << std::endl;
 }
 
 void ParserGenerator::BuildActionTable() {
@@ -94,7 +85,6 @@ void ParserGenerator::BuildActionTable() {
                 if (IsTerminal(next_token)) {
                     size_t next_state_j =
                         state_to_number_[Goto(states_[i], next_token)];
-                    // std::cout << "changing action table\n";
                     action_[i][QualName(std::get<Terminal>(next_token))] =
                         Action{ActionType::SHIFT, next_state_j};
                 }
@@ -166,17 +156,6 @@ void ParserGenerator::ComputeFirst() {
             }
         }
     }
-    for (const auto &[token, set] : first_) {
-        if (IsTerminal(token)) {
-            std::cout << std::get<Terminal>(token).name_ << ": ";
-        } else {
-            std::cout << std::get<NonTerminal>(token).name_ << ": ";
-        }
-        for (const Terminal &t : set) {
-            std::cout << t.name_ << ", ";
-        }
-        std::cout << std::endl;
-    }
 }
 
 std::set<Terminal> ParserGenerator::FirstForSequence(std::vector<Token> seq) {
@@ -206,7 +185,6 @@ std::set<Item> ParserGenerator::Closure(const std::set<Item> &items) {
     std::set<Item> closure = items;
     size_t i = 0;
     while (true) {
-        // std::cout << "iter: " << i << std::endl;
         std::set<Item> new_items;
         for (const Item &item : closure) {
             if (item.DotAtEnd()) {
@@ -218,24 +196,10 @@ std::set<Item> ParserGenerator::Closure(const std::set<Item> &items) {
                 NonTerminal nt = std::get<NonTerminal>(next_token);
                 for (size_t i = 0; i < g_.rules_.size(); ++i) {
                     if (g_[i].lhs == nt) {
-                        /*std::cout << "found a production with " << nt.name_
-                                  << " as lhs\n";*/
                         std::vector<Token> first_seq(
                             p.begin() + item.dot_pos_ + 1, p.end());
                         first_seq.push_back(item.lookahead_);
-                        /*for (const Token &token : first_seq) {
-                            if (IsTerminal(token)) {
-                                std::cout << std::get<Terminal>(token).name_
-                                          << " ";
-                            } else {
-                                std::cout << std::get<NonTerminal>(token).name_
-                                          << " ";
-                            }
-                        }
-                        std::cout << std::endl;*/
                         std::set<Terminal> result = FirstForSequence(first_seq);
-                        /*std::cout << "result size: " << result.size()
-                                  << std::endl;*/
                         for (const Terminal &t : result) {
                             new_items.insert(Item{i, 0, t, g_});
                         }
@@ -250,7 +214,6 @@ std::set<Item> ParserGenerator::Closure(const std::set<Item> &items) {
         }
         ++i;
     }
-    // std::cout << "closure size: " << closure.size() << std::endl;
     return closure;
 }
 
@@ -263,6 +226,5 @@ State ParserGenerator::Goto(State state, Token next) {
                                   item.lookahead_, item.grammar_});
         }
     }
-    // std::cout << "state size: " << new_state.size() << std::endl;
     return Closure(new_state);
 }
