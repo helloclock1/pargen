@@ -17,15 +17,17 @@ public:
     const Grammar &Get() const;
 
 private:
-    std::vector<std::string> Split(std::string s, const std::string &delim);
-    std::string TrimWS(const std::string &s);
+    int GetChar();
+    int GetChar(int expected);
+    int Peek() const;
+    bool PeekAt(int c) const;
+    void SkipWS();
 
-    bool IsTerminal(const std::string &s);
-    void AssertIsTerminal(const std::string &s);
-    bool IsNonTerminal(const std::string &s);
-    void AssertIsNonTerminal(const std::string &s);
-
-    void ParseLine(const std::string &s);
+    void ParseLine();
+    std::vector<Token> ParseRule();
+    Token ParseToken();
+    Terminal ParseQuoteTerminal();
+    std::string ParseName();
 
     std::istream *in_;
     Grammar g_;

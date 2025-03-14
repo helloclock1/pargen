@@ -181,6 +181,7 @@ void CodeGenerator::GenerateLexer() {
     out << "\n";
     out << "%%\n";
     out << "\n";
+    // TODO(helloclock): precede certain characters like " with a backslash
     for (const Token &token : g_.tokens_) {
         if (std::holds_alternative<Terminal>(token)) {
             Terminal t = std::get<Terminal>(token);
