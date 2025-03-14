@@ -1,6 +1,8 @@
 #include "BNFParser.h"
 
+#include <cctype>
 #include <stdexcept>
+#include <variant>
 
 #include "Entities.h"
 
@@ -8,9 +10,11 @@ GrammarParser::GrammarParser(std::istream *in) : in_(in) {
 }
 
 void GrammarParser::Parse() {
-    std::string line;
-    while (std::getline(*in_, line)) {
-        ParseLine(line);
+    while (in_->peek() != -1) {
+        // invariant: here in_ always peeks at line beginning
+        SkipWS();
+        ParseLine();
+        GetChar();
     }
 }
 
@@ -18,103 +22,132 @@ const Grammar &GrammarParser::Get() const {
     return g_;
 }
 
-std::vector<std::string> GrammarParser::Split(std::string s,
-                                              const std::string &delim) {
-    std::vector<std::string> result;
-    std::string rule;
-    size_t pos = s.find(delim);
-    while (pos != std::string::npos) {
-        result.push_back(TrimWS(s.substr(0, pos)));
-        s.erase(0, pos + delim.length());
-        pos = s.find(delim);
-    }
-    result.push_back(TrimWS(s));
-    return result;
+int GrammarParser::GetChar() {
+    return in_->get();
 }
 
-std::string GrammarParser::TrimWS(const std::string &s) {
-    size_t first = s.find_first_not_of(' ');
-    if (first == std::string::npos) {
-        return "";
+int GrammarParser::GetChar(int expected) {
+    int c = in_->get();
+    if (c != expected) {
+        throw std::runtime_error("Unexpected character: `" + std::string(1, c) +
+                                 "` != `" + std::string(1, expected) + "`");
     }
-    size_t last = std::min(s.size(), s.find_last_not_of(' '));
-    return s.substr(first, last - first + 1);
+    return c;
 }
 
-bool GrammarParser::IsTerminal(const std::string &s) {
-    if (s.front() != '<' && s.back() != '>') {
-        return true;
-    }
-    return false;
+int GrammarParser::Peek() const {
+    return in_->peek();
 }
 
-void GrammarParser::AssertIsTerminal(const std::string &s) {
-    if (s.front() == '<' || s.back() == '>') {
-        throw std::runtime_error(
-            "Expression `" + s +
-            "` was expected to be a terminal but isn't one.");
+bool GrammarParser::PeekAt(int c) const {
+    return Peek() == c;
+}
+
+void GrammarParser::SkipWS() {
+    while (std::isspace(in_->peek()) && in_->peek() != '\n') {
+        in_->get();
     }
 }
 
-bool GrammarParser::IsNonTerminal(const std::string &s) {
-    if (s.front() == '<' && s.back() == '>' &&
-        s.find(' ') == std::string::npos) {
-        return true;
-    }
-    return false;
-}
-
-void GrammarParser::AssertIsNonTerminal(const std::string &s) {
-    if (!IsNonTerminal(s)) {
-        throw std::runtime_error(
-            "Expression `" + s +
-            "` was expected to be a non-terminal but isn't one.");
-    }
-}
-
-// TODO(helloclock): rewrite for more "rigorous" parsing
-// TODO(helloclock): add better epsilon-string support
-// (maybe separate token for it like EPS)
-void GrammarParser::ParseLine(const std::string &s) {
-    std::vector<std::string> sides = Split(s, "::=");
-    if (sides.size() != 2) {
-        throw std::runtime_error("Incorrect `::=` placement.");
-    }
-    std::string lhs = sides[0], rhs = sides[1];
-    if (IsNonTerminal(lhs)) {
-        lhs = lhs.substr(1, lhs.length() - 2);
-        auto production_list = Split(rhs, "|");
-        for (const auto &raw_rule : production_list) {
-            Production prod;
-            std::vector<std::string> tokens = Split(raw_rule, " ");
-            for (const auto &token : tokens) {
-                if (IsNonTerminal(token)) {
-                    NonTerminal nt =
-                        NonTerminal{token.substr(1, token.length() - 2)};
-                    prod.push_back(nt);
-                    g_.tokens_.insert(nt);
-                } else if (token.starts_with('\'') && token.ends_with('\'') ||
-                           token.starts_with('"') && token.ends_with('"')) {
-                    // quote terminal
-                    Terminal t = Terminal{token.substr(1, token.length() - 2)};
-                    prod.push_back(t);
-                    g_.tokens_.insert(t);
-                } else {
-                    // regex terminal
-                    Terminal t = Terminal{token, token};
-                    prod.push_back(t);
-                }
-            }
-            g_.rules_.push_back(Rule{NonTerminal{lhs}, prod});
+void GrammarParser::ParseLine() {
+    Token lhs = ParseToken();
+    SkipWS();
+    GetChar('=');
+    SkipWS();
+    if (std::holds_alternative<Terminal>(lhs)) {
+        Terminal t = std::get<Terminal>(lhs);
+        std::string regex;
+        while (!(PeekAt('\n') || PeekAt(EOF))) {
+            char c = GetChar();
+            regex += c;
         }
-    } else if (IsTerminal(lhs)) {
-        size_t prev = g_.tokens_.size();
-        g_.tokens_.insert(Terminal{lhs, rhs});
-        if (g_.tokens_.size() == prev) {
-            throw std::runtime_error("Regex terminal redefinition");
+        size_t last_non_space = regex.find_last_not_of(' ');
+        if (last_non_space != std::string::npos) {
+            regex = regex.substr(0, last_non_space + 1);
+        }
+        g_.tokens_.insert(Terminal{t.name_, regex});
+    } else if (std::holds_alternative<NonTerminal>(lhs)) {
+        NonTerminal nt_lhs = std::get<NonTerminal>(lhs);
+        while (!(PeekAt('\n') || PeekAt(EOF))) {
+            SkipWS();
+            Production prod = ParseRule();
+            if (prod.empty()) {
+                char response;
+                do {
+                    std::cout << "Encountered an empty production #k on line "
+                                 "n, did you want "
+                                 "it to be an empty string? If not, the "
+                                 "production will "
+                                 "be ignored [y/n]: ";
+                    std::cin >> response;
+                } while (!(response == 'y' || response == 'n'));
+                if (response == 'y') {
+                    prod = {Terminal{""}};
+                }
+            } else {
+                g_.rules_.push_back(Rule{nt_lhs, prod});
+            }
+            SkipWS();
+            if (PeekAt('|')) {
+                GetChar();
+            }
         }
     } else {
-        throw std::runtime_error(
-            "Unrecognizable token on LHS of assignment: `" + lhs + "`");
+        throw std::logic_error("Unknown token type encountered");
     }
+}
+
+std::vector<Token> GrammarParser::ParseRule() {
+    std::vector<Token> production;
+    while (!(PeekAt('\n') || PeekAt(EOF) || PeekAt('|'))) {
+        Token token = ParseToken();
+        if (std::holds_alternative<Terminal>(token)) {
+            Terminal t = std::get<Terminal>(token);
+            if (!t.repr_.empty() && t.name_ == "EPSILON") {
+                token = Terminal{""};
+            }
+        }
+        production.push_back(token);
+        g_.tokens_.insert(token);
+        SkipWS();
+    }
+    return production;
+}
+
+Token GrammarParser::ParseToken() {
+    if (PeekAt('<')) {
+        GetChar();
+        NonTerminal result = NonTerminal{ParseName()};
+        char c = in_->get();
+        if (c != '>') {
+            throw std::runtime_error("Unterminated `<`");
+        }
+        return result;
+    } else if (PeekAt('\'') || PeekAt('"')) {
+        return ParseQuoteTerminal();
+    } else if (std::isalpha(Peek())) {
+        return Terminal{ParseName(), " "};
+    }
+    throw std::runtime_error("Unknown token, peeking at `" +
+                             std::string(1, Peek()) + "`");
+}
+
+Terminal GrammarParser::ParseQuoteTerminal() {
+    char init = in_->get();
+    std::string lexeme;
+    while (in_->peek() != init && in_->peek() != '\n') {
+        lexeme += in_->get();
+    }
+    if (in_->get() != init) {
+        throw std::runtime_error("Unterminated quote terminal");
+    }
+    return Terminal{lexeme};
+}
+
+std::string GrammarParser::ParseName() {
+    std::string result;
+    while ((std::isalnum(Peek()) || PeekAt('_')) && in_->peek() != '\n') {
+        result += in_->get();
+    }
+    return result;
 }
