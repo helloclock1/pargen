@@ -185,6 +185,9 @@ void CodeGenerator::GenerateLexer() {
     for (const Token &token : g_.tokens_) {
         if (std::holds_alternative<Terminal>(token)) {
             Terminal t = std::get<Terminal>(token);
+            if (t.name_.empty()) {
+                continue;
+            }
             if (t.repr_.empty()) {
                 out << "\"" << t.name_ << "\"" << "\t"
                     << "{ tokens.push_back(Terminal{yytext}); }\n";
@@ -194,6 +197,7 @@ void CodeGenerator::GenerateLexer() {
             }
         }
     }
+
     out << "\n";
     out << "%%\n";
     out.close();
@@ -341,6 +345,7 @@ void CodeGenerator::GenerateParser() {
     out << "#include \"Parser.h\"\n";
     out << "#include \"Types.h\"";
     out << "\n";
+    out << "#include <iostream>\n";
     out << "#include <stdexcept>\n";
     out << "\n";
     out << "std::string QualName(Token token) {\n";
@@ -380,9 +385,12 @@ void CodeGenerator::GenerateParser() {
     out << "                break;\n";
     out << "            case ActionType::REDUCE: {\n";
     out << "                Rule rule = g_[action.value];\n";
-    out << "                for (size_t i = 0; i < rule.prod.size(); ++i) {\n";
-    out << "                    symbol_stack_.pop();\n";
-    out << "                    state_stack_.pop();\n";
+    out << "                if (QualName(rule.prod[0]) != \"T_\") {\n";
+    out << "                    for (size_t i = 0; i < rule.prod.size(); ++i) "
+           "{\n";
+    out << "                        symbol_stack_.pop();\n";
+    out << "                        state_stack_.pop();\n";
+    out << "                    }\n";
     out << "                }\n";
     out << "                size_t t = state_stack_.top();\n";
     out << "                symbol_stack_.push(rule.lhs);\n";
