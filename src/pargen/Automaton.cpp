@@ -1,6 +1,10 @@
 // TODO(helloclock): add epsilon-string support
 #include "Automaton.h"
 
+#include <variant>
+
+#include "Entities.h"
+
 Item::Item(size_t rule_number, size_t dot_pos, Terminal lookahead,
            const Grammar &grammar)
     : rule_number_(rule_number),
@@ -85,8 +89,13 @@ void ParserGenerator::BuildActionTable() {
                 if (IsTerminal(next_token)) {
                     size_t next_state_j =
                         state_to_number_[Goto(states_[i], next_token)];
-                    action_[i][QualName(std::get<Terminal>(next_token))] =
-                        Action{ActionType::SHIFT, next_state_j};
+                    if (std::get<Terminal>(next_token) != Terminal{""}) {
+                        action_[i][QualName(std::get<Terminal>(next_token))] =
+                            Action{ActionType::SHIFT, next_state_j};
+                    } else {  // this should be at the end
+                        action_[i][QualName(item.lookahead_)] =
+                            Action{ActionType::REDUCE, item.rule_number_};
+                    }
                 }
             } else {
                 if (item.rule_number_ != 0) {
@@ -126,6 +135,7 @@ void ParserGenerator::ComputeFirst() {
             first_[token] = {};
         }
     }
+    first_[Terminal{""}] = {Terminal{""}};
     bool changed = true;
     while (changed) {
         changed = false;
@@ -158,7 +168,8 @@ void ParserGenerator::ComputeFirst() {
     }
 }
 
-std::set<Terminal> ParserGenerator::FirstForSequence(std::vector<Token> seq) {
+std::set<Terminal> ParserGenerator::FirstForSequence(
+    const std::vector<Token> &seq) {
     if (seq.empty()) {
         return {Terminal{""}};
     }
@@ -198,6 +209,9 @@ std::set<Item> ParserGenerator::Closure(const std::set<Item> &items) {
                     if (g_[i].lhs == nt) {
                         std::vector<Token> first_seq(
                             p.begin() + item.dot_pos_ + 1, p.end());
+                        if (first_seq.empty()) {
+                            first_seq = {Terminal{""}};
+                        }
                         first_seq.push_back(item.lookahead_);
                         std::set<Terminal> result = FirstForSequence(first_seq);
                         for (const Terminal &t : result) {

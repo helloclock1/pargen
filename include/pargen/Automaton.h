@@ -95,7 +95,7 @@ private:
 
     std::map<Token, std::set<Terminal>> first_;
     void ComputeFirst();
-    std::set<Terminal> FirstForSequence(std::vector<Token> seq);
+    std::set<Terminal> FirstForSequence(const std::vector<Token> &seq);
 
     std::set<Item> Closure(const std::set<Item> &items);
     State Goto(State state, Token next);

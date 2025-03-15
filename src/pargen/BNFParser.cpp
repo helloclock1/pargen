@@ -101,14 +101,18 @@ std::vector<Token> GrammarParser::ParseRule() {
     std::vector<Token> production;
     while (!(PeekAt('\n') || PeekAt(EOF) || PeekAt('|'))) {
         Token token = ParseToken();
+        bool is_eps = false;
         if (std::holds_alternative<Terminal>(token)) {
             Terminal t = std::get<Terminal>(token);
             if (!t.repr_.empty() && t.name_ == "EPSILON") {
+                is_eps = true;
                 token = Terminal{""};
             }
         }
         production.push_back(token);
-        g_.tokens_.insert(token);
+        if (!is_eps) {
+            g_.tokens_.insert(token);
+        }
         SkipWS();
     }
     return production;
