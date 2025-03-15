@@ -1,12 +1,12 @@
 #pragma once
 
+#include <boost/bimap.hpp>
 #include <map>
 #include <memory>
 #include <optional>
 #include <set>
 #include <tuple>
 #include <unordered_map>
-#include <variant>
 
 #include "Entities.h"
 
@@ -68,12 +68,6 @@ public:
 
     ActionTable GetActionTable() const;
     GotoTable GetGotoTable() const;
-    std::vector<State> GetStates() const {
-        return states_;
-    }
-    std::map<State, size_t> GetStateToNumber() const {
-        return state_to_number_;
-    }
 
 private:
     // TODO(helloclock): too much stuff here, rewrite/split
@@ -90,8 +84,7 @@ private:
 
     Grammar g_;
 
-    std::map<State, size_t> state_to_number_;
-    std::vector<State> states_;
+    boost::bimap<size_t, State> states_;
 
     AutomatonNode *current_state_;
     ActionTable action_;

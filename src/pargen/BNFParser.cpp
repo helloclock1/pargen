@@ -1,7 +1,5 @@
 #include "BNFParser.h"
 
-#include "Entities.h"
-
 GrammarParser::GrammarParser(std::istream *in) : in_(in) {
 }
 

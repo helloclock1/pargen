@@ -1,7 +1,5 @@
 #include "Automaton.h"
 
-#include "Entities.h"
-
 Item::Item(size_t rule_number, size_t dot_pos, Terminal lookahead,
            const Grammar &grammar)
     : rule_number_(rule_number),
@@ -43,6 +41,7 @@ std::string QualName(Token token) {
 }
 
 ParserGenerator::ParserGenerator(const Grammar &g) : g_(g) {
+    // TODO(helloclock): add grammar augmentation
     g_.tokens_.insert(Terminal{"$"});
     ComputeFirst();
     BuildCanonicalCollection();
@@ -59,27 +58,31 @@ GotoTable ParserGenerator::GetGotoTable() const {
 }
 
 void ParserGenerator::BuildCanonicalCollection() {
-    states_ = {Closure({Item{0, 0, Terminal{"$"}, g_}})};
-    state_to_number_[states_[0]] = 0;
-    std::set<State> c_set{states_.begin(), states_.end()};
+    State initial_state = Closure({Item{0, 0, Terminal{"$"}, g_}});
+    states_.insert({0, initial_state});
+    std::set<State> c_set = {initial_state};
     bool changed = true;
+    size_t state_idx = 1;
     while (changed) {
         changed = false;
         std::set<State> new_states;
-        for (const State &state : states_) {
+        for (const auto &[idx, state] : states_) {
             for (const Token &token : g_.tokens_) {
                 State goto_token_state = Goto(state, token);
-                if (!goto_token_state.empty() &&
-                    !c_set.contains(goto_token_state) &&
-                    !new_states.contains(goto_token_state)) {
+                if (!goto_token_state.empty()) {
                     new_states.insert(goto_token_state);
-                    changed = true;
                 }
             }
         }
+        size_t prev = states_.size();
         for (const State &state : new_states) {
-            state_to_number_[state] = states_.size();
-            states_.push_back(state);
+            if (states_.right.find(state) == states_.right.end()) {
+                states_.insert({state_idx, state});
+                ++state_idx;
+            }
+        }
+        if (states_.size() != prev) {
+            changed = true;
         }
         c_set.insert(new_states.begin(), new_states.end());
     }
@@ -88,13 +91,16 @@ void ParserGenerator::BuildCanonicalCollection() {
 void ParserGenerator::BuildActionTable() {
     action_.resize(states_.size());
     for (size_t i = 0; i < states_.size(); ++i) {
-        for (const Item &item : states_[i]) {
+        for (const Item &item : states_.left.at(i)) {
             std::optional<Token> next_token_opt = item.NextToken();
             if (next_token_opt.has_value()) {
                 Token next_token = next_token_opt.value();
                 if (IsTerminal(next_token)) {
-                    size_t next_state_j =
-                        state_to_number_[Goto(states_[i], next_token)];
+                    State next_state = Goto(states_.left.at(i), next_token);
+                    size_t next_state_j = 0;
+                    if (states_.right.find(next_state) != states_.right.end()) {
+                        next_state_j = states_.right.at(next_state);
+                    }
                     if (std::get<Terminal>(next_token) != EPSILON) {
                         action_[i][QualName(std::get<Terminal>(next_token))] =
                             Action{ActionType::SHIFT, next_state_j};
@@ -124,11 +130,10 @@ void ParserGenerator::BuildGotoTable() {
                 continue;
             }
             NonTerminal nt = std::get<NonTerminal>(token);
-            size_t goto_value = state_to_number_[Goto(states_[i], nt)];
-            if (goto_value == 0) {
-                continue;
+            State state = Goto(states_.left.at(i), nt);
+            if (states_.right.find(state) != states_.right.end()) {
+                goto_[i][nt] = states_.right.at(state);
             }
-            goto_[i][nt] = goto_value;
         }
     }
 }
