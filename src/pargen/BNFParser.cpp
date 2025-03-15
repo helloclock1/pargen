@@ -1,16 +1,12 @@
 #include "BNFParser.h"
 
-#include <cctype>
-#include <stdexcept>
-#include <variant>
-
 #include "Entities.h"
 
 GrammarParser::GrammarParser(std::istream *in) : in_(in) {
 }
 
 void GrammarParser::Parse() {
-    while (in_->peek() != -1) {
+    while (!PeekAt(EOF)) {
         // invariant: here in_ always peeks at line beginning
         SkipWS();
         ParseLine();
@@ -27,7 +23,7 @@ int GrammarParser::GetChar() {
 }
 
 int GrammarParser::GetChar(int expected) {
-    int c = in_->get();
+    int c = GetChar();
     if (c != expected) {
         throw std::runtime_error("Unexpected character: `" + std::string(1, c) +
                                  "` != `" + std::string(1, expected) + "`");
@@ -44,8 +40,8 @@ bool GrammarParser::PeekAt(int c) const {
 }
 
 void GrammarParser::SkipWS() {
-    while (std::isspace(in_->peek()) && in_->peek() != '\n') {
-        in_->get();
+    while (std::isspace(Peek()) && !PeekAt('\n')) {
+        GetChar();
     }
 }
 
@@ -139,10 +135,10 @@ Token GrammarParser::ParseToken() {
 Terminal GrammarParser::ParseQuoteTerminal() {
     char init = in_->get();
     std::string lexeme;
-    while (in_->peek() != init && in_->peek() != '\n') {
+    while (!(PeekAt(init) || PeekAt('\n'))) {
         lexeme += in_->get();
     }
-    if (in_->get() != init) {
+    if (!GetChar(init)) {
         throw std::runtime_error("Unterminated quote terminal");
     }
     return Terminal{lexeme};

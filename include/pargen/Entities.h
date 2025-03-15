@@ -61,8 +61,6 @@ struct Rule {
     Production prod;
 };
 
-bool GrammarComparator(const Rule &a, const Rule &b);
-// using Grammar = std::vector<Rule>;
 struct Grammar {
     std::vector<Rule> rules_;
     std::set<Token> tokens_;

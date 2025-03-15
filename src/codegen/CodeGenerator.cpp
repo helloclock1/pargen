@@ -1,10 +1,5 @@
 #include "CodeGenerator.h"
 
-#include <cstdlib>
-#include <cstring>
-#include <filesystem>
-#include <variant>
-
 #include "Automaton.h"
 #include "Entities.h"
 
@@ -31,6 +26,7 @@ void CodeGenerator::GenerateStructure() {
 }
 
 void CodeGenerator::GenerateTypes() {
+    // TODO(helloclock): there are definitely redundant functions generated here
     std::ofstream out(folder_ + "/include/Types.h");
     out << "#pragma once\n";
     out << "\n";
@@ -181,15 +177,23 @@ void CodeGenerator::GenerateLexer() {
     out << "\n";
     out << "%%\n";
     out << "\n";
-    // TODO(helloclock): precede certain characters like " with a backslash
     for (const Token &token : g_.tokens_) {
-        if (std::holds_alternative<Terminal>(token)) {
+        if (IsTerminal(token)) {
             Terminal t = std::get<Terminal>(token);
             if (t.name_.empty()) {
                 continue;
             }
             if (t.repr_.empty()) {
-                out << "\"" << t.name_ << "\"" << "\t"
+                out << "\"";
+                for (const char &c : t.name_) {
+                    // TODO(helloclock): check for existence of other escape
+                    // chars
+                    if (c == '"' || c == '\\') {
+                        out << "\\";
+                    }
+                    out << c;
+                }
+                out << "\"" << "\t"
                     << "{ tokens.push_back(Terminal{yytext}); }\n";
             } else {
                 out << t.repr_ << "\t" << "{ tokens.push_back(Terminal{\""
@@ -206,14 +210,15 @@ void CodeGenerator::GenerateLexer() {
                                       "/src/Lexer.cpp " + folder_ +
                                       "/tmp/Lexer.l";
     system(build_lexer_command.c_str());
-    // std::filesystem::remove_all(folder_ + "/tmp");
+    std::filesystem::remove_all(folder_ + "/tmp");
 }
 
 void CodeGenerator::GenerateParser() {
     std::ofstream out(folder_ + "/include/Parser.h");
+    out << "#pragma once\n";
+    out << "\n";
     out << "#include <ranges>\n";
     out << "#include <stack>\n";
-    out << "#include <unordered_map>\n";
     out << "#include <vector>\n";
     out << "\n";
     out << "#include \"Types.h\"\n";
@@ -316,7 +321,7 @@ void CodeGenerator::GenerateParser() {
         out << "            {\n";
         for (const Token &token : rule.prod) {
             out << "                ";
-            if (std::holds_alternative<Terminal>(token)) {
+            if (IsTerminal(token)) {
                 Terminal t = std::get<Terminal>(token);
                 out << "Terminal{\"" << t.name_ << "\"";
                 if (!t.repr_.empty()) {

@@ -1,7 +1,4 @@
-// TODO(helloclock): add epsilon-string support
 #include "Automaton.h"
-
-#include <variant>
 
 #include "Entities.h"
 
@@ -13,6 +10,17 @@ Item::Item(size_t rule_number, size_t dot_pos, Terminal lookahead,
       grammar_(grammar) {
 }
 
+bool Item::DotAtEnd() const {
+    return dot_pos_ >= grammar_[rule_number_].prod.size();
+}
+
+std::optional<Token> Item::NextToken() const {
+    if (!DotAtEnd()) {
+        return grammar_[rule_number_].prod[dot_pos_];
+    }
+    return std::nullopt;
+}
+
 bool IsTerminal(const Token &token) {
     return std::holds_alternative<Terminal>(token);
 }
@@ -22,7 +30,7 @@ bool IsNonTerminal(const Token &token) {
 }
 
 std::string QualName(Token token) {
-    if (std::holds_alternative<Terminal>(token)) {
+    if (IsTerminal(token)) {
         Terminal t = std::get<Terminal>(token);
         if (t.repr_.empty()) {
             return "T_" + t.name_;
@@ -79,9 +87,7 @@ void ParserGenerator::BuildCanonicalCollection() {
 
 void ParserGenerator::BuildActionTable() {
     action_.resize(states_.size());
-    // iterate through all items in all states
     for (size_t i = 0; i < states_.size(); ++i) {
-        // i --- state number
         for (const Item &item : states_[i]) {
             std::optional<Token> next_token_opt = item.NextToken();
             if (next_token_opt.has_value()) {
@@ -89,7 +95,7 @@ void ParserGenerator::BuildActionTable() {
                 if (IsTerminal(next_token)) {
                     size_t next_state_j =
                         state_to_number_[Goto(states_[i], next_token)];
-                    if (std::get<Terminal>(next_token) != Terminal{""}) {
+                    if (std::get<Terminal>(next_token) != EPSILON) {
                         action_[i][QualName(std::get<Terminal>(next_token))] =
                             Action{ActionType::SHIFT, next_state_j};
                     } else {  // this should be at the end
@@ -135,7 +141,7 @@ void ParserGenerator::ComputeFirst() {
             first_[token] = {};
         }
     }
-    first_[Terminal{""}] = {Terminal{""}};
+    first_[EPSILON] = {EPSILON};
     bool changed = true;
     while (changed) {
         changed = false;
@@ -144,8 +150,8 @@ void ParserGenerator::ComputeFirst() {
             for (const Token &token : rule.prod) {
                 size_t prev_size = first_[rule.lhs].size();
                 std::set<Terminal> token_first = first_[token];
-                auto eps_location = token_first.find(Terminal{""});
-                bool eps_in_token_first = token_first.contains(Terminal{""});
+                auto eps_location = token_first.find(EPSILON);
+                bool eps_in_token_first = token_first.contains(EPSILON);
                 if (eps_in_token_first) {
                     token_first.erase(eps_location);
                 }
@@ -159,10 +165,10 @@ void ParserGenerator::ComputeFirst() {
                 }
             }
             if (include_eps) {
-                if (!first_[rule.lhs].contains(Terminal{""})) {
+                if (!first_[rule.lhs].contains(EPSILON)) {
                     changed = true;
                 }
-                first_[rule.lhs].insert(Terminal{""});
+                first_[rule.lhs].insert(EPSILON);
             }
         }
     }
@@ -171,31 +177,32 @@ void ParserGenerator::ComputeFirst() {
 std::set<Terminal> ParserGenerator::FirstForSequence(
     const std::vector<Token> &seq) {
     if (seq.empty()) {
-        return {Terminal{""}};
+        return {EPSILON};
     }
     std::set<Terminal> result;
     bool eps_in_prev = true;
     size_t i = 0;
     while (eps_in_prev && i < seq.size()) {
         std::set<Terminal> token_first = first_[seq[i]];
-        bool eps_in_token = token_first.contains(Terminal{""});
+        bool eps_in_token = token_first.contains(EPSILON);
         if (eps_in_token) {
-            token_first.erase(Terminal{""});
+            token_first.erase(EPSILON);
         }
         result.insert(token_first.begin(), token_first.end());
         eps_in_prev = eps_in_token;
         ++i;
     }
     if (eps_in_prev) {
-        result.insert(Terminal{""});
+        result.insert(EPSILON);
     }
     return result;
 }
 
 std::set<Item> ParserGenerator::Closure(const std::set<Item> &items) {
     std::set<Item> closure = items;
-    size_t i = 0;
-    while (true) {
+    bool changed = true;
+    while (changed) {
+        changed = false;
         std::set<Item> new_items;
         for (const Item &item : closure) {
             if (item.DotAtEnd()) {
@@ -210,7 +217,7 @@ std::set<Item> ParserGenerator::Closure(const std::set<Item> &items) {
                         std::vector<Token> first_seq(
                             p.begin() + item.dot_pos_ + 1, p.end());
                         if (first_seq.empty()) {
-                            first_seq = {Terminal{""}};
+                            first_seq = {EPSILON};
                         }
                         first_seq.push_back(item.lookahead_);
                         std::set<Terminal> result = FirstForSequence(first_seq);
@@ -221,12 +228,11 @@ std::set<Item> ParserGenerator::Closure(const std::set<Item> &items) {
                 }
             }
         }
-        size_t before = closure.size();
+        size_t prev = closure.size();
         closure.insert(new_items.begin(), new_items.end());
-        if (closure.size() == before) {
-            break;
+        if (closure.size() != prev) {
+            changed = true;
         }
-        ++i;
     }
     return closure;
 }

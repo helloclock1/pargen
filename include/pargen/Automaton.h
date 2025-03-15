@@ -1,15 +1,22 @@
 #pragma once
 
-#include <iostream>
 #include <map>
 #include <memory>
 #include <optional>
 #include <set>
-#include <span>
 #include <tuple>
 #include <unordered_map>
+#include <variant>
 
 #include "Entities.h"
+
+// TODO(helloclock): move those to a separate header alongside other helper
+// functions
+const Terminal EPSILON = Terminal{""};
+
+bool IsTerminal(const Token &token);
+
+bool IsNonTerminal(const Token &token);
 
 struct Item {
     Item(size_t rule_number, size_t dot_pos, Terminal lookahead,
@@ -18,6 +25,8 @@ struct Item {
     size_t rule_number_;
     size_t dot_pos_;
     Terminal lookahead_;
+    // TODO(helloclock): get rid of this field, move Item decl inside
+    // ParserGenerator
     const Grammar &grammar_;
     // dot_pos_ = i means that dot is placed before i-th token,
     // next token is on position i respectively
@@ -27,29 +36,9 @@ struct Item {
                std::tie(b.rule_number_, b.dot_pos_, b.lookahead_);
     }
 
-    bool DotAtEnd() const {
-        bool a = dot_pos_ >= grammar_[rule_number_].prod.size();
-        return a;
-    }
+    bool DotAtEnd() const;
 
-    std::optional<Token> NextToken() const {
-        if (!DotAtEnd()) {
-            return grammar_[rule_number_].prod[dot_pos_];
-        }
-        return std::nullopt;
-    }
-
-    Rule GetRule() const {
-        Rule rule;
-        rule.lhs = grammar_[rule_number_].lhs;
-        for (size_t i = 0; i < grammar_[rule_number_].prod.size(); ++i) {
-            if (i == dot_pos_) {
-                rule.prod.push_back(NonTerminal{"."});
-            }
-            rule.prod.push_back(grammar_[rule_number_].prod[i]);
-        }
-        return rule;
-    }
+    std::optional<Token> NextToken() const;
 };
 
 using State = std::set<Item>;
@@ -66,7 +55,6 @@ struct Action {
     size_t value_ = 0;
 };
 
-// TODO(helloclock): maybe rewrite to umap + hash function
 using ActionTable = std::vector<std::unordered_map<std::string, Action>>;
 using GotoTable =
     std::unordered_map<size_t, std::unordered_map<NonTerminal, size_t>>;
