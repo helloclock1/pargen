@@ -195,7 +195,7 @@ void CodeGenerator::GenerateLexer() {
                 }
                 out << "\"" << "\t"
                     << "{ tokens.push_back(Terminal{yytext}); }\n";
-            } else {
+            } else if (t.repr_ != " ") {
                 out << t.repr_ << "\t" << "{ tokens.push_back(Terminal{\""
                     << t.name_ << "\", yytext}); }\n";
             }
