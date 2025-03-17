@@ -1,5 +1,7 @@
 #include "BNFParser.h"
 
+#include <stdexcept>
+
 GrammarParser::GrammarParser(std::istream *in) : in_(in) {
 }
 
@@ -53,10 +55,13 @@ void GrammarParser::ParseLine() {
     SkipWS();
     if (std::holds_alternative<Terminal>(lhs)) {
         Terminal t = std::get<Terminal>(lhs);
+        if (t.repr_.empty()) {
+            throw std::runtime_error(
+                "Can't assign a regex to a quote terminal.");
+        }
         std::string regex;
         while (!(PeekAt('\n') || PeekAt(EOF))) {
-            char c = GetChar();
-            regex += c;
+            regex += GetChar();
         }
         size_t last_non_space = regex.find_last_not_of(' ');
         if (last_non_space != std::string::npos) {
