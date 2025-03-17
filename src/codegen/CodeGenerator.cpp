@@ -414,7 +414,7 @@ void CodeGenerator::GenerateParser() {
     out << "    while (!seq_.empty()) {\n";
     out << "        seq_.pop();\n";
     out << "    }\n";
-    out << "    seq_.push(Terminal{\"$\"});\n";
+    out << "    seq_.push(Terminal{\"$\", \"$\"});\n";
     out << "    while (!state_stack_.empty()) {\n";
     out << "        state_stack_.pop();\n";
     out << "    }\n";

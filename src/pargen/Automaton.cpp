@@ -42,7 +42,7 @@ std::string QualName(Token token) {
 }
 
 ParserGenerator::ParserGenerator(const Grammar &g) : g_(g) {
-    g_.tokens_.insert(Terminal{"$"});
+    g_.tokens_.insert(Terminal{"$", "$"});
     ComputeFirst();
     BuildCanonicalCollection();
     BuildActionTable();
@@ -58,7 +58,7 @@ GotoTable ParserGenerator::GetGotoTable() const {
 }
 
 void ParserGenerator::BuildCanonicalCollection() {
-    State initial_state = Closure({Item{0, 0, Terminal{"$"}}});
+    State initial_state = Closure({Item{0, 0, Terminal{"$", "$"}}});
     states_.insert({0, initial_state});
     std::set<State> c_set = {initial_state};
     bool changed = true;
@@ -115,7 +115,7 @@ void ParserGenerator::BuildActionTable() {
                     action_[i][QualName(item.lookahead_)] =
                         Action{ActionType::REDUCE, item.rule_number_};
                 } else {
-                    action_[i][QualName(Terminal{"$"})] =
+                    action_[i][QualName(Terminal{"$", "$"})] =
                         Action{ActionType::ACCEPT};
                 }
             }
