@@ -1,6 +1,7 @@
 #pragma once
 
 #include <boost/bimap.hpp>
+#include <boost/container_hash/hash.hpp>
 #include <map>
 #include <memory>
 #include <optional>
@@ -17,36 +18,6 @@ const Terminal EPSILON = Terminal{""};
 bool IsTerminal(const Token &token);
 
 bool IsNonTerminal(const Token &token);
-
-struct Item {
-    Item(size_t rule_number, size_t dot_pos, Terminal lookahead,
-         const Grammar &grammar);
-
-    size_t rule_number_;
-    size_t dot_pos_;
-    Terminal lookahead_;
-    // TODO(helloclock): get rid of this field, move Item decl inside
-    // ParserGenerator
-    const Grammar &grammar_;
-    // dot_pos_ = i means that dot is placed before i-th token,
-    // next token is on position i respectively
-
-    friend bool operator<(const Item &a, const Item &b) {
-        return std::tie(a.rule_number_, a.dot_pos_, a.lookahead_) <
-               std::tie(b.rule_number_, b.dot_pos_, b.lookahead_);
-    }
-
-    bool DotAtEnd() const;
-
-    std::optional<Token> NextToken() const;
-};
-
-using State = std::set<Item>;
-
-class AutomatonNode {
-    State state_;
-    std::unordered_map<Terminal, std::unique_ptr<AutomatonNode>> to_;
-};
 
 enum class ActionType { SHIFT, REDUCE, ACCEPT, ERROR };
 
@@ -69,7 +40,26 @@ public:
     ActionTable GetActionTable() const;
     GotoTable GetGotoTable() const;
 
+    struct Item {
+        Item(size_t rule_number, size_t dot_pos, Terminal lookahead);
+
+        size_t rule_number_;
+        size_t dot_pos_;
+        Terminal lookahead_;
+
+        friend bool operator<(const Item &a, const Item &b) {
+            return std::tie(a.rule_number_, a.dot_pos_, a.lookahead_) <
+                   std::tie(b.rule_number_, b.dot_pos_, b.lookahead_);
+        }
+    };
+
+    using State = std::set<Item>;
+
 private:
+    bool DotAtEnd(const Item &item) const;
+
+    std::optional<Token> NextToken(const Item &item) const;
+
     // TODO(helloclock): too much stuff here, rewrite/split
     void BuildCanonicalCollection();
     void BuildActionTable();
@@ -86,7 +76,6 @@ private:
 
     boost::bimap<size_t, State> states_;
 
-    AutomatonNode *current_state_;
     ActionTable action_;
     GotoTable goto_;
 };

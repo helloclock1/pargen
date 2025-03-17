@@ -1,22 +1,21 @@
 #include "Automaton.h"
 
+#include <boost/container_hash/hash_fwd.hpp>
+
 #include "Entities.h"
 
-Item::Item(size_t rule_number, size_t dot_pos, Terminal lookahead,
-           const Grammar &grammar)
-    : rule_number_(rule_number),
-      dot_pos_(dot_pos),
-      lookahead_(lookahead),
-      grammar_(grammar) {
+ParserGenerator::Item::Item(size_t rule_number, size_t dot_pos,
+                            Terminal lookahead)
+    : rule_number_(rule_number), dot_pos_(dot_pos), lookahead_(lookahead) {
 }
 
-bool Item::DotAtEnd() const {
-    return dot_pos_ >= grammar_[rule_number_].prod.size();
+bool ParserGenerator::DotAtEnd(const Item &item) const {
+    return item.dot_pos_ >= g_[item.rule_number_].prod.size();
 }
 
-std::optional<Token> Item::NextToken() const {
-    if (!DotAtEnd()) {
-        return grammar_[rule_number_].prod[dot_pos_];
+std::optional<Token> ParserGenerator::NextToken(const Item &item) const {
+    if (!DotAtEnd(item)) {
+        return g_[item.rule_number_].prod[item.dot_pos_];
     }
     return std::nullopt;
 }
@@ -59,7 +58,7 @@ GotoTable ParserGenerator::GetGotoTable() const {
 }
 
 void ParserGenerator::BuildCanonicalCollection() {
-    State initial_state = Closure({Item{0, 0, Terminal{"$"}, g_}});
+    State initial_state = Closure({Item{0, 0, Terminal{"$"}}});
     states_.insert({0, initial_state});
     std::set<State> c_set = {initial_state};
     bool changed = true;
@@ -93,7 +92,7 @@ void ParserGenerator::BuildActionTable() {
     action_.resize(states_.size());
     for (size_t i = 0; i < states_.size(); ++i) {
         for (const Item &item : states_.left.at(i)) {
-            std::optional<Token> next_token_opt = item.NextToken();
+            std::optional<Token> next_token_opt = NextToken(item);
             if (next_token_opt.has_value()) {
                 Token next_token = next_token_opt.value();
                 if (IsTerminal(next_token)) {
@@ -204,14 +203,15 @@ std::set<Terminal> ParserGenerator::FirstForSequence(
     return result;
 }
 
-std::set<Item> ParserGenerator::Closure(const std::set<Item> &items) {
+std::set<ParserGenerator::Item> ParserGenerator::Closure(
+    const std::set<Item> &items) {
     std::set<Item> closure = items;
     bool changed = true;
     while (changed) {
         changed = false;
         std::set<Item> new_items;
         for (const Item &item : closure) {
-            if (item.DotAtEnd()) {
+            if (DotAtEnd(item)) {
                 continue;
             }
             Production p = g_[item.rule_number_].prod;
@@ -228,7 +228,7 @@ std::set<Item> ParserGenerator::Closure(const std::set<Item> &items) {
                         first_seq.push_back(item.lookahead_);
                         std::set<Terminal> result = FirstForSequence(first_seq);
                         for (const Terminal &t : result) {
-                            new_items.insert(Item{i, 0, t, g_});
+                            new_items.insert(Item{i, 0, t});
                         }
                     }
                 }
@@ -243,13 +243,13 @@ std::set<Item> ParserGenerator::Closure(const std::set<Item> &items) {
     return closure;
 }
 
-State ParserGenerator::Goto(State state, Token next) {
+ParserGenerator::State ParserGenerator::Goto(State state, Token next) {
     State new_state;
     for (const Item &item : state) {
-        std::optional<Token> next_token = item.NextToken();
+        std::optional<Token> next_token = NextToken(item);
         if (next_token.has_value() && next_token.value() == next) {
-            new_state.insert(Item{item.rule_number_, item.dot_pos_ + 1,
-                                  item.lookahead_, item.grammar_});
+            new_state.insert(
+                Item{item.rule_number_, item.dot_pos_ + 1, item.lookahead_});
         }
     }
     return Closure(new_state);
