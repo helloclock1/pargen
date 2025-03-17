@@ -10,6 +10,9 @@ void GrammarParser::Parse() {
         ParseLine();
         GetChar();
     }
+    NonTerminal first_rule = g_.rules_[0].lhs;
+    g_.rules_.insert(g_.rules_.cbegin(), Rule{NonTerminal{"S'"}, {first_rule}});
+    g_.tokens_.insert(first_rule);
 }
 
 const Grammar &GrammarParser::Get() const {

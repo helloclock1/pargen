@@ -1,5 +1,7 @@
 #include "Automaton.h"
 
+#include "Entities.h"
+
 Item::Item(size_t rule_number, size_t dot_pos, Terminal lookahead,
            const Grammar &grammar)
     : rule_number_(rule_number),
@@ -41,7 +43,6 @@ std::string QualName(Token token) {
 }
 
 ParserGenerator::ParserGenerator(const Grammar &g) : g_(g) {
-    // TODO(helloclock): add grammar augmentation
     g_.tokens_.insert(Terminal{"$"});
     ComputeFirst();
     BuildCanonicalCollection();
