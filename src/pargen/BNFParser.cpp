@@ -49,12 +49,20 @@ void GrammarParser::SkipWS() {
 }
 
 void GrammarParser::ParseLine() {
+    if (PeekAt('\n')) {
+        GetChar();
+        return;
+    }
     Token lhs = ParseToken();
     SkipWS();
     GetChar('=');
     SkipWS();
     if (std::holds_alternative<Terminal>(lhs)) {
         Terminal t = std::get<Terminal>(lhs);
+        if (t.name_ == "IGNORE") {
+            ParseIgnore();
+            return;
+        }
         if (t.repr_.empty()) {
             throw std::runtime_error(
                 "Can't assign a regex to a quote terminal.");
@@ -156,4 +164,12 @@ std::string GrammarParser::ParseName() {
         result += in_->get();
     }
     return result;
+}
+
+void GrammarParser::ParseIgnore() {
+    std::string regex;
+    while (!(PeekAt('\n') || PeekAt(EOF))) {
+        regex += GetChar();
+    }
+    g_.ignored_.push_back(regex);
 }

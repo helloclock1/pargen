@@ -186,9 +186,11 @@ void CodeGenerator::GenerateLexer() {
             if (t.repr_.empty()) {
                 out << "\"";
                 for (const char &c : t.name_) {
-                    // TODO(helloclock): check for existence of other escape
-                    // chars
-                    if (c == '"' || c == '\\') {
+                    // user may pass something like '\n' as a token. this should
+                    // be taken exactly as if it was embraced in double quotes
+                    // without modifying (so '\n' is considered a newline, not a
+                    // sequence of backslash and `n`)
+                    if (c == '"') {
                         out << "\\";
                     }
                     out << c;
@@ -200,6 +202,9 @@ void CodeGenerator::GenerateLexer() {
                     << t.name_ << "\", yytext}); }\n";
             }
         }
+    }
+    for (const std::string &regex : g_.ignored_) {
+        out << regex << "\t;\n";
     }
 
     out << "\n";

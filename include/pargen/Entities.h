@@ -64,6 +64,7 @@ struct Rule {
 struct Grammar {
     std::vector<Rule> rules_;
     std::set<Token> tokens_;
+    std::vector<std::string> ignored_;
 
     Rule &operator[](size_t i) {
         return rules_[i];
