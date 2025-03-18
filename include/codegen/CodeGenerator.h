@@ -16,6 +16,7 @@ private:
     void GenerateTypes();
     void GenerateLexer();
     void GenerateParser();
+    void GenerateTreeGenerators();
     void GenerateMain();
     void GenerateCMakeLists();
 

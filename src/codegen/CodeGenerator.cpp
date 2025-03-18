@@ -13,6 +13,7 @@ void CodeGenerator::Generate() {
     GenerateTypes();
     GenerateLexer();
     GenerateParser();
+    GenerateTreeGenerators();
     GenerateMain();
     GenerateCMakeLists();
 }
@@ -320,7 +321,9 @@ void CodeGenerator::GenerateParser() {
     out << "class Parser {\n";
     out << "public:\n";
     out << "    Parser();\n";
+    out << "\n";
     out << "    void Parse(const std::vector<Terminal> &stream);\n";
+    out << "    std::shared_ptr<ParseTreeNode> GetParseTree() const;\n";
     out << "\n";
     out << "private:\n";
     out << "    void Clear();\n";
@@ -434,6 +437,10 @@ void CodeGenerator::GenerateParser() {
     out << "    }\n";
     out << "}\n";
     out << "\n";
+    out << "std::shared_ptr<ParseTreeNode> Parser::GetParseTree() const {\n";
+    out << "    return node_stack_.top();\n";
+    out << "}\n";
+    out << "\n";
     out << "void Parser::Clear() {\n";
     out << "    while (!seq_.empty()) {\n";
     out << "        seq_.pop();\n";
@@ -450,8 +457,73 @@ void CodeGenerator::GenerateParser() {
     out.close();
 }
 
+// TODO(helloclock): improve api
+void CodeGenerator::GenerateTreeGenerators() {
+    std::ofstream out(folder_ + "/include/ParseTreeGenerator.h");
+    out << "#include <nlohmann/json.hpp>\n";
+    out << "\n";
+    out << "#include \"Types.h\"\n";
+    out << "\n";
+    out << "using json = nlohmann::ordered_json;\n";
+    out << "\n";
+    out << "class JsonTreeGenerator {\n";
+    out << "public:\n";
+    out << "    JsonTreeGenerator(const std::string &filename);\n";
+    out << "\n";
+    out << "    void Generate(std::shared_ptr<ParseTreeNode> root);\n";
+    out << "\n";
+    out << "private:\n";
+    out << "    json GenerateForNode(std::shared_ptr<ParseTreeNode> node);\n";
+    out << "\n";
+    out << "    std::string filename_;\n";
+    out << "};\n";
+    out.close();
+    out = std::ofstream(folder_ + "/src/ParseTreeGenerator.cpp");
+    out << "#include \"ParseTreeGenerator.h\"\n";
+    out << "\n";
+    out << "#include <fstream>\n";
+    out << "\n";
+    out << "#include \"Types.h\"\n";
+    out << "\n";
+    out << "JsonTreeGenerator::JsonTreeGenerator(const std::string &filename) "
+           ": filename_(filename) {\n";
+    out << "}\n";
+    out << "\n";
+    out << "void JsonTreeGenerator::Generate(std::shared_ptr<ParseTreeNode> "
+           "root) {\n";
+    out << "    json tree = GenerateForNode(root);\n";
+    out << "    std::ofstream out(filename_);\n";
+    out << "    out << tree.dump(4);\n";
+    out << "}\n";
+    out << "\n";
+    out << "json "
+           "JsonTreeGenerator::GenerateForNode(std::shared_ptr<ParseTreeNode> "
+           "node) {\n";
+    out << "    json tree;\n";
+    out << "    if (std::holds_alternative<Terminal>(node->value)) {\n";
+    out << "        Terminal t = std::get<Terminal>(node->value);\n";
+    out << "        tree[\"value\"] = t.name;\n";
+    out << "        if (!t.repr.empty()) {\n";
+    out << "            tree[\"lexeme\"] = t.repr;\n";
+    out << "        }\n";
+    out << "    } else {\n";
+    out << "        tree[\"type\"] = "
+           "std::get<NonTerminal>(node->value).name;\n";
+    out << "    }\n";
+    out << "    if (node->children.empty()) {\n";
+    out << "        return tree;\n";
+    out << "    }\n";
+    out << "    for (const auto child : node->children) {\n";
+    out << "        tree[\"children\"].push_back(GenerateForNode(child));\n";
+    out << "    }\n";
+    out << "    return tree;\n";
+    out << "}\n";
+    out.close();
+}
+
 void CodeGenerator::GenerateMain() {
     std::ofstream out(folder_ + "/apps/main.cpp");
+    out << "#include \"ParseTreeGenerator.h\"\n";
     out << "#include \"Parser.h\"\n";
     out << "#include \"Types.h\"\n";
     out << "\n";
@@ -466,6 +538,8 @@ void CodeGenerator::GenerateMain() {
     out << "    std::vector<Terminal> stream = Lex(filename);\n";
     out << "    Parser parser;\n";
     out << "    parser.Parse(stream);\n";
+    out << "    JsonTreeGenerator jtg(\"tree.json\");\n";
+    out << "    jtg.Generate(parser.GetParseTree());\n";
     out << "    return 0;\n";
     out << "}\n";
     out.close();
@@ -479,15 +553,18 @@ void CodeGenerator::GenerateCMakeLists() {
     out << "set(CMAKE_CXX_STANDARD 20)\n";
     out << "set(CMAKE_CXX_STANDARD_REQUIRED ON)\n";
     out << "\n";
+    out << "find_package(nlohmann_json 3.11.3 REQUIRED)\n";
+    out << "\n";
     out << "add_library(parser_lib src/Types.cpp src/Parser.cpp "
-           "src/Lexer.cpp)\n";
+           "src/Lexer.cpp src/ParseTreeGenerator.cpp)\n";
     out << "\n";
     out << "target_include_directories(parser_lib PUBLIC "
            "${CMAKE_CURRENT_SOURCE_DIR}/include)\n";
     out << "\n";
     out << "add_executable(parser apps/main.cpp)\n";
     out << "\n";
-    out << "target_link_libraries(parser PRIVATE parser_lib)\n";
+    out << "target_link_libraries(parser PRIVATE parser_lib "
+           "nlohmann_json::nlohmann_json)\n";
     out << "target_compile_options(parser PRIVATE -Werror -Wall -Wextra "
            "-Wpedantic)\n";
     out.close();
