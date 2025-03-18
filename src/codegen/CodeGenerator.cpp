@@ -30,6 +30,7 @@ void CodeGenerator::GenerateTypes() {
     std::ofstream out(folder_ + "/include/Types.h");
     out << "#pragma once\n";
     out << "\n";
+    out << "#include <memory>\n";
     out << "#include <optional>\n";
     out << "#include <set>\n";
     out << "#include <string>\n";
@@ -123,6 +124,11 @@ void CodeGenerator::GenerateTypes() {
            "Action>>;\n";
     out << "using GotoTable = std::unordered_map<size_t, "
            "std::unordered_map<NonTerminal, size_t>>;\n";
+    out << "\n";
+    out << "struct ParseTreeNode {\n";
+    out << "    Token value;\n";
+    out << "    std::vector<std::shared_ptr<ParseTreeNode>> children;\n";
+    out << "};\n";
     out.close();
 
     out = std::ofstream(folder_ + "/src/Types.cpp");
@@ -345,7 +351,7 @@ void CodeGenerator::GenerateParser() {
     out << "\n";
     out << "    std::stack<Terminal> seq_;\n";
     out << "    std::stack<size_t> state_stack_;\n";
-    out << "    std::stack<Token> symbol_stack_;\n";
+    out << "    std::stack<std::shared_ptr<ParseTreeNode>> node_stack_;\n";
     out << "\n";
     out << "    ActionTable action_ = ParserTables::GetActionTable();\n";
     out << "    GotoTable goto_ = ParserTables::GetGotoTable();\n";
@@ -355,6 +361,7 @@ void CodeGenerator::GenerateParser() {
     out << "#include \"Parser.h\"\n";
     out << "#include \"Types.h\"";
     out << "\n";
+    out << "#include <algorithm>\n";
     out << "#include <iostream>\n";
     out << "#include <stdexcept>\n";
     out << "\n";
@@ -386,23 +393,35 @@ void CodeGenerator::GenerateParser() {
     out << "        size_t s = state_stack_.top();\n";
     out << "        Action action = action_[s][QualName(a)];\n";
     out << "        switch (action.type) {\n";
-    out << "            case ActionType::SHIFT:\n";
-    out << "                symbol_stack_.push(a);\n";
+    out << "            case ActionType::SHIFT: {\n";
+    out << "                auto new_node = "
+           "std::make_shared<ParseTreeNode>(ParseTreeNode{a, {}});\n";
+    out << "                node_stack_.push(new_node);\n";
     out << "                state_stack_.push(action.value);\n";
     out << "                seq_.pop();\n";
     out << "                a = seq_.top();\n";
     out << "                break;\n";
+    out << "            }\n";
     out << "            case ActionType::REDUCE: {\n";
     out << "                Rule rule = g_[action.value];\n";
+    out << "                std::vector<std::shared_ptr<ParseTreeNode>> "
+           "new_children;\n";
     out << "                if (QualName(rule.prod[0]) != \"T_\") {\n";
     out << "                    for (size_t i = 0; i < rule.prod.size(); ++i) "
            "{\n";
-    out << "                        symbol_stack_.pop();\n";
+    out << "                        "
+           "new_children.push_back(node_stack_.top());\n";
+    out << "                        node_stack_.pop();\n";
     out << "                        state_stack_.pop();\n";
     out << "                    }\n";
     out << "                }\n";
+    out << "                std::reverse(new_children.begin(), "
+           "new_children.end());\n";
+    out << "                auto new_node = "
+           "std::make_shared<ParseTreeNode>(ParseTreeNode{rule.lhs, "
+           "new_children});\n";
+    out << "                node_stack_.push(new_node);\n";
     out << "                size_t t = state_stack_.top();\n";
-    out << "                symbol_stack_.push(rule.lhs);\n";
     out << "                state_stack_.push(goto_[t][rule.lhs]);\n";
     out << "                break;\n";
     out << "            }\n";
@@ -424,8 +443,8 @@ void CodeGenerator::GenerateParser() {
     out << "        state_stack_.pop();\n";
     out << "    }\n";
     out << "    state_stack_.push(0);\n";
-    out << "    while (!symbol_stack_.empty()) {\n";
-    out << "        symbol_stack_.pop();\n";
+    out << "    while (!node_stack_.empty()) {\n";
+    out << "        node_stack_.pop();\n";
     out << "    }\n";
     out << "}\n";
     out.close();
