@@ -1,21 +1,20 @@
 #include "BNFParser.h"
 
-#include <cctype>
 #include <stdexcept>
-#include <variant>
-
-#include "Entities.h"
 
 GrammarParser::GrammarParser(std::istream *in) : in_(in) {
 }
 
 void GrammarParser::Parse() {
-    while (in_->peek() != -1) {
+    while (!PeekAt(EOF)) {
         // invariant: here in_ always peeks at line beginning
         SkipWS();
         ParseLine();
         GetChar();
     }
+    NonTerminal first_rule = g_.rules_[0].lhs;
+    g_.rules_.insert(g_.rules_.cbegin(), Rule{NonTerminal{"S'"}, {first_rule}});
+    g_.tokens_.insert(first_rule);
 }
 
 const Grammar &GrammarParser::Get() const {
@@ -27,7 +26,7 @@ int GrammarParser::GetChar() {
 }
 
 int GrammarParser::GetChar(int expected) {
-    int c = in_->get();
+    int c = GetChar();
     if (c != expected) {
         throw std::runtime_error("Unexpected character: `" + std::string(1, c) +
                                  "` != `" + std::string(1, expected) + "`");
@@ -44,22 +43,33 @@ bool GrammarParser::PeekAt(int c) const {
 }
 
 void GrammarParser::SkipWS() {
-    while (std::isspace(in_->peek()) && in_->peek() != '\n') {
-        in_->get();
+    while (std::isspace(Peek()) && !PeekAt('\n')) {
+        GetChar();
     }
 }
 
 void GrammarParser::ParseLine() {
+    if (PeekAt('\n')) {
+        GetChar();
+        return;
+    }
     Token lhs = ParseToken();
     SkipWS();
     GetChar('=');
     SkipWS();
     if (std::holds_alternative<Terminal>(lhs)) {
         Terminal t = std::get<Terminal>(lhs);
+        if (t.name_ == "IGNORE") {
+            ParseIgnore();
+            return;
+        }
+        if (t.repr_.empty()) {
+            throw std::runtime_error(
+                "Can't assign a regex to a quote terminal.");
+        }
         std::string regex;
         while (!(PeekAt('\n') || PeekAt(EOF))) {
-            char c = GetChar();
-            regex += c;
+            regex += GetChar();
         }
         size_t last_non_space = regex.find_last_not_of(' ');
         if (last_non_space != std::string::npos) {
@@ -139,10 +149,10 @@ Token GrammarParser::ParseToken() {
 Terminal GrammarParser::ParseQuoteTerminal() {
     char init = in_->get();
     std::string lexeme;
-    while (in_->peek() != init && in_->peek() != '\n') {
+    while (!(PeekAt(init) || PeekAt('\n'))) {
         lexeme += in_->get();
     }
-    if (in_->get() != init) {
+    if (!GetChar(init)) {
         throw std::runtime_error("Unterminated quote terminal");
     }
     return Terminal{lexeme};
@@ -154,4 +164,12 @@ std::string GrammarParser::ParseName() {
         result += in_->get();
     }
     return result;
+}
+
+void GrammarParser::ParseIgnore() {
+    std::string regex;
+    while (!(PeekAt('\n') || PeekAt(EOF))) {
+        regex += GetChar();
+    }
+    g_.ignored_.push_back(regex);
 }

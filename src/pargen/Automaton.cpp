@@ -1,16 +1,23 @@
-// TODO(helloclock): add epsilon-string support
 #include "Automaton.h"
 
-#include <variant>
+#include <boost/container_hash/hash_fwd.hpp>
 
 #include "Entities.h"
 
-Item::Item(size_t rule_number, size_t dot_pos, Terminal lookahead,
-           const Grammar &grammar)
-    : rule_number_(rule_number),
-      dot_pos_(dot_pos),
-      lookahead_(lookahead),
-      grammar_(grammar) {
+ParserGenerator::Item::Item(size_t rule_number, size_t dot_pos,
+                            Terminal lookahead)
+    : rule_number_(rule_number), dot_pos_(dot_pos), lookahead_(lookahead) {
+}
+
+bool ParserGenerator::DotAtEnd(const Item &item) const {
+    return item.dot_pos_ >= g_[item.rule_number_].prod.size();
+}
+
+std::optional<Token> ParserGenerator::NextToken(const Item &item) const {
+    if (!DotAtEnd(item)) {
+        return g_[item.rule_number_].prod[item.dot_pos_];
+    }
+    return std::nullopt;
 }
 
 bool IsTerminal(const Token &token) {
@@ -22,7 +29,7 @@ bool IsNonTerminal(const Token &token) {
 }
 
 std::string QualName(Token token) {
-    if (std::holds_alternative<Terminal>(token)) {
+    if (IsTerminal(token)) {
         Terminal t = std::get<Terminal>(token);
         if (t.repr_.empty()) {
             return "T_" + t.name_;
@@ -35,7 +42,7 @@ std::string QualName(Token token) {
 }
 
 ParserGenerator::ParserGenerator(const Grammar &g) : g_(g) {
-    g_.tokens_.insert(Terminal{"$"});
+    g_.tokens_.insert(Terminal{"$", "$"});
     ComputeFirst();
     BuildCanonicalCollection();
     BuildActionTable();
@@ -51,27 +58,31 @@ GotoTable ParserGenerator::GetGotoTable() const {
 }
 
 void ParserGenerator::BuildCanonicalCollection() {
-    states_ = {Closure({Item{0, 0, Terminal{"$"}, g_}})};
-    state_to_number_[states_[0]] = 0;
-    std::set<State> c_set{states_.begin(), states_.end()};
+    State initial_state = Closure({Item{0, 0, Terminal{"$", "$"}}});
+    states_.insert({0, initial_state});
+    std::set<State> c_set = {initial_state};
     bool changed = true;
+    size_t state_idx = 1;
     while (changed) {
         changed = false;
         std::set<State> new_states;
-        for (const State &state : states_) {
+        for (const auto &[idx, state] : states_) {
             for (const Token &token : g_.tokens_) {
                 State goto_token_state = Goto(state, token);
-                if (!goto_token_state.empty() &&
-                    !c_set.contains(goto_token_state) &&
-                    !new_states.contains(goto_token_state)) {
+                if (!goto_token_state.empty()) {
                     new_states.insert(goto_token_state);
-                    changed = true;
                 }
             }
         }
+        size_t prev = states_.size();
         for (const State &state : new_states) {
-            state_to_number_[state] = states_.size();
-            states_.push_back(state);
+            if (states_.right.find(state) == states_.right.end()) {
+                states_.insert({state_idx, state});
+                ++state_idx;
+            }
+        }
+        if (states_.size() != prev) {
+            changed = true;
         }
         c_set.insert(new_states.begin(), new_states.end());
     }
@@ -79,17 +90,18 @@ void ParserGenerator::BuildCanonicalCollection() {
 
 void ParserGenerator::BuildActionTable() {
     action_.resize(states_.size());
-    // iterate through all items in all states
     for (size_t i = 0; i < states_.size(); ++i) {
-        // i --- state number
-        for (const Item &item : states_[i]) {
-            std::optional<Token> next_token_opt = item.NextToken();
+        for (const Item &item : states_.left.at(i)) {
+            std::optional<Token> next_token_opt = NextToken(item);
             if (next_token_opt.has_value()) {
                 Token next_token = next_token_opt.value();
                 if (IsTerminal(next_token)) {
-                    size_t next_state_j =
-                        state_to_number_[Goto(states_[i], next_token)];
-                    if (std::get<Terminal>(next_token) != Terminal{""}) {
+                    State next_state = Goto(states_.left.at(i), next_token);
+                    size_t next_state_j = 0;
+                    if (states_.right.find(next_state) != states_.right.end()) {
+                        next_state_j = states_.right.at(next_state);
+                    }
+                    if (std::get<Terminal>(next_token) != EPSILON) {
                         action_[i][QualName(std::get<Terminal>(next_token))] =
                             Action{ActionType::SHIFT, next_state_j};
                     } else {  // this should be at the end
@@ -103,7 +115,7 @@ void ParserGenerator::BuildActionTable() {
                     action_[i][QualName(item.lookahead_)] =
                         Action{ActionType::REDUCE, item.rule_number_};
                 } else {
-                    action_[i][QualName(Terminal{"$"})] =
+                    action_[i][QualName(Terminal{"$", "$"})] =
                         Action{ActionType::ACCEPT};
                 }
             }
@@ -118,11 +130,10 @@ void ParserGenerator::BuildGotoTable() {
                 continue;
             }
             NonTerminal nt = std::get<NonTerminal>(token);
-            size_t goto_value = state_to_number_[Goto(states_[i], nt)];
-            if (goto_value == 0) {
-                continue;
+            State state = Goto(states_.left.at(i), nt);
+            if (states_.right.find(state) != states_.right.end()) {
+                goto_[i][nt] = states_.right.at(state);
             }
-            goto_[i][nt] = goto_value;
         }
     }
 }
@@ -135,7 +146,7 @@ void ParserGenerator::ComputeFirst() {
             first_[token] = {};
         }
     }
-    first_[Terminal{""}] = {Terminal{""}};
+    first_[EPSILON] = {EPSILON};
     bool changed = true;
     while (changed) {
         changed = false;
@@ -144,8 +155,8 @@ void ParserGenerator::ComputeFirst() {
             for (const Token &token : rule.prod) {
                 size_t prev_size = first_[rule.lhs].size();
                 std::set<Terminal> token_first = first_[token];
-                auto eps_location = token_first.find(Terminal{""});
-                bool eps_in_token_first = token_first.contains(Terminal{""});
+                auto eps_location = token_first.find(EPSILON);
+                bool eps_in_token_first = token_first.contains(EPSILON);
                 if (eps_in_token_first) {
                     token_first.erase(eps_location);
                 }
@@ -159,10 +170,10 @@ void ParserGenerator::ComputeFirst() {
                 }
             }
             if (include_eps) {
-                if (!first_[rule.lhs].contains(Terminal{""})) {
+                if (!first_[rule.lhs].contains(EPSILON)) {
                     changed = true;
                 }
-                first_[rule.lhs].insert(Terminal{""});
+                first_[rule.lhs].insert(EPSILON);
             }
         }
     }
@@ -171,34 +182,36 @@ void ParserGenerator::ComputeFirst() {
 std::set<Terminal> ParserGenerator::FirstForSequence(
     const std::vector<Token> &seq) {
     if (seq.empty()) {
-        return {Terminal{""}};
+        return {EPSILON};
     }
     std::set<Terminal> result;
     bool eps_in_prev = true;
     size_t i = 0;
     while (eps_in_prev && i < seq.size()) {
         std::set<Terminal> token_first = first_[seq[i]];
-        bool eps_in_token = token_first.contains(Terminal{""});
+        bool eps_in_token = token_first.contains(EPSILON);
         if (eps_in_token) {
-            token_first.erase(Terminal{""});
+            token_first.erase(EPSILON);
         }
         result.insert(token_first.begin(), token_first.end());
         eps_in_prev = eps_in_token;
         ++i;
     }
     if (eps_in_prev) {
-        result.insert(Terminal{""});
+        result.insert(EPSILON);
     }
     return result;
 }
 
-std::set<Item> ParserGenerator::Closure(const std::set<Item> &items) {
+std::set<ParserGenerator::Item> ParserGenerator::Closure(
+    const std::set<Item> &items) {
     std::set<Item> closure = items;
-    size_t i = 0;
-    while (true) {
+    bool changed = true;
+    while (changed) {
+        changed = false;
         std::set<Item> new_items;
         for (const Item &item : closure) {
-            if (item.DotAtEnd()) {
+            if (DotAtEnd(item)) {
                 continue;
             }
             Production p = g_[item.rule_number_].prod;
@@ -210,34 +223,33 @@ std::set<Item> ParserGenerator::Closure(const std::set<Item> &items) {
                         std::vector<Token> first_seq(
                             p.begin() + item.dot_pos_ + 1, p.end());
                         if (first_seq.empty()) {
-                            first_seq = {Terminal{""}};
+                            first_seq = {EPSILON};
                         }
                         first_seq.push_back(item.lookahead_);
                         std::set<Terminal> result = FirstForSequence(first_seq);
                         for (const Terminal &t : result) {
-                            new_items.insert(Item{i, 0, t, g_});
+                            new_items.insert(Item{i, 0, t});
                         }
                     }
                 }
             }
         }
-        size_t before = closure.size();
+        size_t prev = closure.size();
         closure.insert(new_items.begin(), new_items.end());
-        if (closure.size() == before) {
-            break;
+        if (closure.size() != prev) {
+            changed = true;
         }
-        ++i;
     }
     return closure;
 }
 
-State ParserGenerator::Goto(State state, Token next) {
+ParserGenerator::State ParserGenerator::Goto(State state, Token next) {
     State new_state;
     for (const Item &item : state) {
-        std::optional<Token> next_token = item.NextToken();
+        std::optional<Token> next_token = NextToken(item);
         if (next_token.has_value() && next_token.value() == next) {
-            new_state.insert(Item{item.rule_number_, item.dot_pos_ + 1,
-                                  item.lookahead_, item.grammar_});
+            new_state.insert(
+                Item{item.rule_number_, item.dot_pos_ + 1, item.lookahead_});
         }
     }
     return Closure(new_state);

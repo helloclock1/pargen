@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cctype>
 #include <cstring>
 #include <iostream>
 #include <istream>
@@ -28,6 +29,7 @@ private:
     Token ParseToken();
     Terminal ParseQuoteTerminal();
     std::string ParseName();
+    void ParseIgnore();
 
     std::istream *in_;
     Grammar g_;

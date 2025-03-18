@@ -1,63 +1,23 @@
 #pragma once
 
-#include <iostream>
+#include <boost/bimap.hpp>
+#include <boost/container_hash/hash.hpp>
 #include <map>
 #include <memory>
 #include <optional>
 #include <set>
-#include <span>
 #include <tuple>
 #include <unordered_map>
 
 #include "Entities.h"
 
-struct Item {
-    Item(size_t rule_number, size_t dot_pos, Terminal lookahead,
-         const Grammar &grammar);
+// TODO(helloclock): move those to a separate header alongside other helper
+// functions
+const Terminal EPSILON = Terminal{""};
 
-    size_t rule_number_;
-    size_t dot_pos_;
-    Terminal lookahead_;
-    const Grammar &grammar_;
-    // dot_pos_ = i means that dot is placed before i-th token,
-    // next token is on position i respectively
+bool IsTerminal(const Token &token);
 
-    friend bool operator<(const Item &a, const Item &b) {
-        return std::tie(a.rule_number_, a.dot_pos_, a.lookahead_) <
-               std::tie(b.rule_number_, b.dot_pos_, b.lookahead_);
-    }
-
-    bool DotAtEnd() const {
-        bool a = dot_pos_ >= grammar_[rule_number_].prod.size();
-        return a;
-    }
-
-    std::optional<Token> NextToken() const {
-        if (!DotAtEnd()) {
-            return grammar_[rule_number_].prod[dot_pos_];
-        }
-        return std::nullopt;
-    }
-
-    Rule GetRule() const {
-        Rule rule;
-        rule.lhs = grammar_[rule_number_].lhs;
-        for (size_t i = 0; i < grammar_[rule_number_].prod.size(); ++i) {
-            if (i == dot_pos_) {
-                rule.prod.push_back(NonTerminal{"."});
-            }
-            rule.prod.push_back(grammar_[rule_number_].prod[i]);
-        }
-        return rule;
-    }
-};
-
-using State = std::set<Item>;
-
-class AutomatonNode {
-    State state_;
-    std::unordered_map<Terminal, std::unique_ptr<AutomatonNode>> to_;
-};
+bool IsNonTerminal(const Token &token);
 
 enum class ActionType { SHIFT, REDUCE, ACCEPT, ERROR };
 
@@ -66,7 +26,6 @@ struct Action {
     size_t value_ = 0;
 };
 
-// TODO(helloclock): maybe rewrite to umap + hash function
 using ActionTable = std::vector<std::unordered_map<std::string, Action>>;
 using GotoTable =
     std::unordered_map<size_t, std::unordered_map<NonTerminal, size_t>>;
@@ -80,14 +39,27 @@ public:
 
     ActionTable GetActionTable() const;
     GotoTable GetGotoTable() const;
-    std::vector<State> GetStates() const {
-        return states_;
-    }
-    std::map<State, size_t> GetStateToNumber() const {
-        return state_to_number_;
-    }
+
+    struct Item {
+        Item(size_t rule_number, size_t dot_pos, Terminal lookahead);
+
+        size_t rule_number_;
+        size_t dot_pos_;
+        Terminal lookahead_;
+
+        friend bool operator<(const Item &a, const Item &b) {
+            return std::tie(a.rule_number_, a.dot_pos_, a.lookahead_) <
+                   std::tie(b.rule_number_, b.dot_pos_, b.lookahead_);
+        }
+    };
+
+    using State = std::set<Item>;
 
 private:
+    bool DotAtEnd(const Item &item) const;
+
+    std::optional<Token> NextToken(const Item &item) const;
+
     // TODO(helloclock): too much stuff here, rewrite/split
     void BuildCanonicalCollection();
     void BuildActionTable();
@@ -102,10 +74,8 @@ private:
 
     Grammar g_;
 
-    std::map<State, size_t> state_to_number_;
-    std::vector<State> states_;
+    boost::bimap<size_t, State> states_;
 
-    AutomatonNode *current_state_;
     ActionTable action_;
     GotoTable goto_;
 };
