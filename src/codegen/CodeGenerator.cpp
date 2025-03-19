@@ -35,37 +35,9 @@ void CodeGenerator::GenerateParser() {
     out << "#include <variant>\n";
     out << "#include <vector>\n";
     out << "\n";
+    out << "#include \"LexerFwd.hpp\"\n";
+    out << "\n";
     out << "namespace p {\n";
-    out << "struct Terminal {\n";
-    out << "    std::string name;\n";
-    out << "    std::string repr = \"\";\n";
-    out << "    bool operator==(const Terminal &other) const {\n";
-    out << "        return name == other.name;\n";
-    out << "    }\n";
-    out << "    bool operator!=(const Terminal &other) const {\n";
-    out << "        return name != other.name;\n";
-    out << "    }\n";
-    out << "};\n";
-    out << "\n";
-    out << "struct NonTerminal {\n";
-    out << "    std::string name;\n";
-    out << "    bool operator==(const NonTerminal &other) const {\n";
-    out << "        return name == other.name;\n";
-    out << "    }\n";
-    out << "    bool operator!=(const NonTerminal &other) const {\n";
-    out << "        return name != other.name;\n";
-    out << "    }\n";
-    out << "};\n";
-    out << "\n";
-    out << "using Token = std::variant<Terminal, NonTerminal>;\n";
-    out << "\n";
-    out << "bool IsTerminal(const Token &token) {\n";
-    out << "    return std::holds_alternative<Terminal>(token);\n";
-    out << "}\n";
-    out << "\n";
-    out << "bool IsNonTerminal(const Token &token) {\n";
-    out << "    return std::holds_alternative<NonTerminal>(token);\n";
-    out << "}\n";
     out << "};  // namespace p\n";
     out << "\n";
     out << "namespace std {\n";
@@ -86,7 +58,7 @@ void CodeGenerator::GenerateParser() {
     out << "template <>\n";
     out << "struct hash<p::Token> {\n";
     out << "    size_t operator()(const p::Token &t) const {\n";
-    out << "        if (p::IsTerminal(t)) {\n";
+    out << "        if (std::holds_alternative<p::Terminal>(t)) {\n";
     out << "            return "
            "hash<p::Terminal>()(std::get<p::Terminal>(t));\n";
     out << "        } else {\n";
@@ -249,7 +221,7 @@ void CodeGenerator::GenerateParser() {
     out << "\n";
     out << "    void Accept(ParseTreeVisitor &visitor) const "
            "{\n";
-    out << "        if (IsTerminal(value)) {\n";
+    out << "        if (std::holds_alternative<p::Terminal>(value)) {\n";
     out << "            visitor.VisitTerminal(std::get<Terminal>(value));\n";
     out << "        } else {\n";
     out << "            "
@@ -317,8 +289,6 @@ void CodeGenerator::GenerateParser() {
     out << "\n";
     out << "class Parser {\n";
     out << "public:\n";
-    out << "    Parser();\n";
-    out << "\n";
     out << "    void Parse(const std::vector<Terminal> &stream) {\n";
     out << "        Clear();\n";
     out << "        for (const Terminal &token : stream | std::views::reverse) "
@@ -439,14 +409,14 @@ void CodeGenerator::GenerateLexer() {
     out << "#include <iostream>\n";
     out << "#include <vector>\n";
     out << "\n";
-    out << "#include \"Types.h\"\n";
+    out << "#include \"LexerFwd.hpp\"\n";
     out << "\n";
-    out << "std::vector<Terminal> tokens;\n";
+    out << "std::vector<p::Terminal> tokens;\n";
     out << "\n";
     out << "extern FILE *yyin;\n";
     out << "extern \"C\" int yylex();\n";
     out << "\n";
-    out << "std::vector<Terminal> Lex(const char *filename) {\n";
+    out << "std::vector<p::Terminal> Lex(const char *filename) {\n";
     out << "    FILE *file = fopen(filename, \"r\");\n";
     out << "    if (!file) {\n";
     out << "        std::cerr << \"Error: cannot open file `\" << filename << "
@@ -480,9 +450,9 @@ void CodeGenerator::GenerateLexer() {
                     out << c;
                 }
                 out << "\"" << "\t"
-                    << "{ tokens.push_back(Terminal{yytext}); }\n";
+                    << "{ tokens.push_back(p::Terminal{yytext}); }\n";
             } else if (t.repr_ != " ") {
-                out << t.repr_ << "\t" << "{ tokens.push_back(Terminal{\""
+                out << t.repr_ << "\t" << "{ tokens.push_back(p::Terminal{\""
                     << t.name_ << "\", yytext}); }\n";
             }
         }
@@ -499,75 +469,33 @@ void CodeGenerator::GenerateLexer() {
         "flex --outfile=" + folder_ + "/Lexer.cpp " + folder_ + "/tmp/Lexer.l";
     system(build_lexer_command.c_str());
     std::filesystem::remove_all(folder_ + "/tmp");
-}
-
-/*void CodeGenerator::GenerateMain() {
-    std::ofstream out(folder_ + "/apps/main.cpp");
-    out << "#include <iostream>\n";
+    out = std::ofstream(folder_ + "/LexerFwd.hpp");
+    out << "#pragma once\n";
     out << "\n";
-    out << "#include \"ParseTreeGenerator.h\"\n";
-    out << "#include \"Parser.h\"\n";
-    out << "#include \"Types.h\"\n";
+    out << "#include \"variant\"\n";
     out << "\n";
-    out << "// This is an example lexer\n";
-    out << "// Feel free to use any other lexer that would lex a stream of "
-           "tokens\n";
-    out << "// to a sequence of `Terminal`.\n";
-    out << "extern std::vector<Terminal> Lex(const char *filename);\n";
-    out << "\n";
-    out << "// This is an example visitor for the parse tree\n";
-    out << "class PrintVisitor : public ParseTreeVisitor {\n";
-    out << "public:\n";
-    out << "    void VisitTerminal(const Terminal &t) override {\n";
-    out << "        std::cout << \"Terminal{\" << t.name << \"}\" << "
-           "std::endl;\n";
+    out << "namespace p {\n";
+    out << "struct Terminal {\n";
+    out << "    std::string name;\n";
+    out << "    std::string repr = \"\";\n";
+    out << "    bool operator==(const Terminal &other) const {\n";
+    out << "        return name == other.name;\n";
     out << "    }\n";
-    out << "    void VisitNonTerminal(const NonTerminal &nt) override {\n";
-    out << "        std::cout << \"NonTerminal{\" << nt.name << \"}\" << "
-           "std::endl;\n";
+    out << "    bool operator!=(const Terminal &other) const {\n";
+    out << "        return name != other.name;\n";
     out << "    }\n";
     out << "};\n";
     out << "\n";
-    out << "int main () {\n";
-    out << "    const char *filename = \"file\";\n";
-    out << "    std::vector<Terminal> stream = Lex(filename);\n";
-    out << "    Parser parser;\n";
-    out << "    parser.Parse(stream);\n";
+    out << "struct NonTerminal {\n";
+    out << "    std::string name;\n";
+    out << "    bool operator==(const NonTerminal &other) const {\n";
+    out << "        return name == other.name;\n";
+    out << "    }\n";
+    out << "    bool operator!=(const NonTerminal &other) const {\n";
+    out << "        return name != other.name;\n";
+    out << "    }\n";
+    out << "};\n";
     out << "\n";
-    out << "    // An example of how to generate a json tree from the parse "
-           "tree\n";
-    out << "    JsonTreeGenerator jtg(\"tree.json\");\n";
-    out << "    jtg.Generate(parser.GetParseTree());\n";
-    out << "\n";
-    out << "    // An example of how to traverse a tree with a visitor\n";
-    out << "    PrintVisitor visitor;\n";
-    out << "    parser.GetParseTree().Accept(visitor);\n";
-    out << "    return 0;\n";
-    out << "}\n";
-    out.close();
+    out << "using Token = std::variant<Terminal, NonTerminal>;\n";
+    out << "};  // namespace p\n";
 }
-
-void CodeGenerator::GenerateCMakeLists() {
-    std::ofstream out(folder_ + "/CMakeLists.txt");
-    out << "cmake_minimum_required(VERSION 3.31)\n";
-    out << "project(Parser LANGUAGES CXX)\n";
-    out << "\n";
-    out << "set(CMAKE_CXX_STANDARD 20)\n";
-    out << "set(CMAKE_CXX_STANDARD_REQUIRED ON)\n";
-    out << "\n";
-    out << "find_package(nlohmann_json 3.11.3 REQUIRED)\n";
-    out << "\n";
-    out << "add_library(parser_lib src/Types.cpp src/Parser.cpp "
-           "src/Lexer.cpp src/ParseTreeGenerator.cpp)\n";
-    out << "\n";
-    out << "target_include_directories(parser_lib PUBLIC "
-           "${CMAKE_CURRENT_SOURCE_DIR}/include)\n";
-    out << "\n";
-    out << "add_executable(parser apps/main.cpp)\n";
-    out << "\n";
-    out << "target_link_libraries(parser PRIVATE parser_lib "
-           "nlohmann_json::nlohmann_json)\n";
-    out << "target_compile_options(parser PRIVATE -Werror -Wall -Wextra "
-           "-Wpedantic)\n";
-    out.close();
-}*/
