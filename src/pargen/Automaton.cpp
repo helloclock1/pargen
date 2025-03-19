@@ -4,8 +4,9 @@
 
 #include "Entities.h"
 
-ParserGenerator::Item::Item(size_t rule_number, size_t dot_pos,
-                            Terminal lookahead)
+ParserGenerator::Item::Item(
+    size_t rule_number, size_t dot_pos, Terminal lookahead
+)
     : rule_number_(rule_number), dot_pos_(dot_pos), lookahead_(lookahead) {
 }
 
@@ -102,22 +103,67 @@ void ParserGenerator::BuildActionTable() {
                         next_state_j = states_.right.at(next_state);
                     }
                     if (std::get<Terminal>(next_token) != EPSILON) {
-                        action_[i][QualName(std::get<Terminal>(next_token))] =
-                            Action{ActionType::SHIFT, next_state_j};
-                    } else {  // this should be at the end
-                        action_[i][QualName(item.lookahead_)] =
-                            Action{ActionType::REDUCE, item.rule_number_};
+                        std::string key =
+                            QualName(std::get<Terminal>(next_token));
+                        Action new_action{ActionType::SHIFT, next_state_j};
+                        if (action_[i].find(key) != action_[i].end()) {
+                            Action existing = action_[i][key];
+                            if (existing.type_ == ActionType::REDUCE) {
+                                throw std::runtime_error(
+                                    "Shift/reduce conflict on token: " + key
+                                );
+                            }
+                            if (existing.type_ == ActionType::SHIFT &&
+                                existing.value_ != new_action.value_) {
+                                throw std::runtime_error(
+                                    "Shift/shift conflict on token: " + key
+                                );
+                            }
+                        }
+                        action_[i][key] = new_action;
+                    } else {
+                        std::string key = QualName(item.lookahead_);
+                        Action new_action{
+                            ActionType::REDUCE, item.rule_number_
+                        };
+                        if (action_[i].find(key) != action_[i].end()) {
+                            Action existing = action_[i][key];
+                            if (existing.type_ == ActionType::SHIFT) {
+                                throw std::runtime_error(
+                                    "Shift/reduce conflict on token: " + key
+                                );
+                            }
+                            if (existing.type_ == ActionType::REDUCE &&
+                                existing.value_ != new_action.value_) {
+                                throw std::runtime_error(
+                                    "Reduce/reduce conflict on token: " + key
+                                );
+                            }
+                        }
+                        action_[i][key] = new_action;
                     }
                 }
             } else {
+                std::string key;
+                Action new_action;
                 if (item.rule_number_ != 0) {
-                    NonTerminal lhs = g_[item.rule_number_].lhs;
-                    action_[i][QualName(item.lookahead_)] =
-                        Action{ActionType::REDUCE, item.rule_number_};
+                    key = QualName(item.lookahead_);
+                    new_action = Action{ActionType::REDUCE, item.rule_number_};
                 } else {
-                    action_[i][QualName(Terminal{"$", "$"})] =
-                        Action{ActionType::ACCEPT};
+                    key = QualName(Terminal{"$", "$"});
+                    new_action = Action{ActionType::ACCEPT};
                 }
+                if (action_[i].find(key) != action_[i].end()) {
+                    Action existing = action_[i][key];
+                    if (existing.type_ == ActionType::SHIFT ||
+                        (existing.type_ == ActionType::REDUCE &&
+                         existing.value_ != new_action.value_)) {
+                        throw std::runtime_error(
+                            "Conflict in action table on token: " + key
+                        );
+                    }
+                }
+                action_[i][key] = new_action;
             }
         }
     }
@@ -180,7 +226,8 @@ void ParserGenerator::ComputeFirst() {
 }
 
 std::set<Terminal> ParserGenerator::FirstForSequence(
-    const std::vector<Token> &seq) {
+    const std::vector<Token> &seq
+) {
     if (seq.empty()) {
         return {EPSILON};
     }
@@ -204,7 +251,8 @@ std::set<Terminal> ParserGenerator::FirstForSequence(
 }
 
 std::set<ParserGenerator::Item> ParserGenerator::Closure(
-    const std::set<Item> &items) {
+    const std::set<Item> &items
+) {
     std::set<Item> closure = items;
     bool changed = true;
     while (changed) {
@@ -221,7 +269,8 @@ std::set<ParserGenerator::Item> ParserGenerator::Closure(
                 for (size_t i = 0; i < g_.rules_.size(); ++i) {
                     if (g_[i].lhs == nt) {
                         std::vector<Token> first_seq(
-                            p.begin() + item.dot_pos_ + 1, p.end());
+                            p.begin() + item.dot_pos_ + 1, p.end()
+                        );
                         if (first_seq.empty()) {
                             first_seq = {EPSILON};
                         }
@@ -249,7 +298,8 @@ ParserGenerator::State ParserGenerator::Goto(State state, Token next) {
         std::optional<Token> next_token = NextToken(item);
         if (next_token.has_value() && next_token.value() == next) {
             new_state.insert(
-                Item{item.rule_number_, item.dot_pos_ + 1, item.lookahead_});
+                Item{item.rule_number_, item.dot_pos_ + 1, item.lookahead_}
+            );
         }
     }
     return Closure(new_state);
