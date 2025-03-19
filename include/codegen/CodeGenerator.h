@@ -7,18 +7,15 @@
 
 class CodeGenerator {
 public:
-    CodeGenerator(const std::string &folder, ActionTable &at, GotoTable &gt,
-                  const Grammar &g);
+    CodeGenerator(
+        const std::string &folder, ActionTable &at, GotoTable &gt,
+        const Grammar &g
+    );
     void Generate();
 
 private:
-    void GenerateStructure();
-    void GenerateTypes();
     void GenerateLexer();
     void GenerateParser();
-    void GenerateTreeGenerators();
-    void GenerateMain();
-    void GenerateCMakeLists();
 
     std::string folder_;
 
