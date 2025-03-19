@@ -12,6 +12,9 @@ void GrammarParser::Parse() {
         ParseLine();
         GetChar();
     }
+    if (g_.rules_.empty()) {
+        throw std::runtime_error("Empty grammar");
+    }
     NonTerminal first_rule = g_.rules_[0].lhs;
     g_.rules_.insert(g_.rules_.cbegin(), Rule{NonTerminal{"S'"}, {first_rule}});
     g_.tokens_.insert(first_rule);
@@ -28,8 +31,10 @@ int GrammarParser::GetChar() {
 int GrammarParser::GetChar(int expected) {
     int c = GetChar();
     if (c != expected) {
-        throw std::runtime_error("Unexpected character: `" + std::string(1, c) +
-                                 "` != `" + std::string(1, expected) + "`");
+        throw std::runtime_error(
+            "Unexpected character: `" + std::string(1, c) + "` != `" +
+            std::string(1, expected) + "`"
+        );
     }
     return c;
 }
@@ -64,8 +69,8 @@ void GrammarParser::ParseLine() {
             return;
         }
         if (t.repr_.empty()) {
-            throw std::runtime_error(
-                "Can't assign a regex to a quote terminal.");
+            throw std::runtime_error("Can't assign a regex to a quote terminal."
+            );
         }
         std::string regex;
         while (!(PeekAt('\n') || PeekAt(EOF))) {
@@ -132,7 +137,7 @@ Token GrammarParser::ParseToken() {
     if (PeekAt('<')) {
         GetChar();
         NonTerminal result = NonTerminal{ParseName()};
-        char c = in_->get();
+        char c = GetChar();
         if (c != '>') {
             throw std::runtime_error("Unterminated `<`");
         }
@@ -142,15 +147,16 @@ Token GrammarParser::ParseToken() {
     } else if (std::isalpha(Peek())) {
         return Terminal{ParseName(), " "};
     }
-    throw std::runtime_error("Unknown token, peeking at `" +
-                             std::string(1, Peek()) + "`");
+    throw std::runtime_error(
+        "Unknown token, peeking at `" + std::string(1, Peek()) + "`"
+    );
 }
 
 Terminal GrammarParser::ParseQuoteTerminal() {
-    char init = in_->get();
+    char init = GetChar();
     std::string lexeme;
-    while (!(PeekAt(init) || PeekAt('\n'))) {
-        lexeme += in_->get();
+    while (!(PeekAt(init) || PeekAt('\n') || PeekAt(EOF))) {
+        lexeme += GetChar();
     }
     if (!GetChar(init)) {
         throw std::runtime_error("Unterminated quote terminal");
@@ -161,7 +167,7 @@ Terminal GrammarParser::ParseQuoteTerminal() {
 std::string GrammarParser::ParseName() {
     std::string result;
     while ((std::isalnum(Peek()) || PeekAt('_')) && in_->peek() != '\n') {
-        result += in_->get();
+        result += GetChar();
     }
     return result;
 }
