@@ -3,8 +3,9 @@
 #include "Automaton.h"
 #include "Entities.h"
 
-CodeGenerator::CodeGenerator(const std::string &folder, ActionTable &at,
-                             GotoTable &gt, const Grammar &g)
+CodeGenerator::CodeGenerator(
+    const std::string &folder, ActionTable &at, GotoTable &gt, const Grammar &g
+)
     : folder_(folder), at_(at), gt_(gt), g_(g) {
 }
 
@@ -125,11 +126,6 @@ void CodeGenerator::GenerateTypes() {
            "Action>>;\n";
     out << "using GotoTable = std::unordered_map<size_t, "
            "std::unordered_map<NonTerminal, size_t>>;\n";
-    out << "\n";
-    out << "struct ParseTreeNode {\n";
-    out << "    Token value;\n";
-    out << "    std::vector<std::shared_ptr<ParseTreeNode>> children;\n";
-    out << "};\n";
     out.close();
 
     out = std::ofstream(folder_ + "/src/Types.cpp");
@@ -149,6 +145,14 @@ void CodeGenerator::GenerateTypes() {
     out << "\n";
     out << "bool NonTerminal::operator!=(const NonTerminal &other) const {\n";
     out << "    return name != other.name;\n";
+    out << "}\n";
+    out << "\n";
+    out << "bool IsTerminal(const Token &token) {\n";
+    out << "    return std::holds_alternative<Terminal>(token);\n";
+    out << "}\n";
+    out << "\n";
+    out << "bool IsNonTerminal(const Token &token) {\n";
+    out << "    return std::holds_alternative<NonTerminal>(token);\n";
     out << "}\n";
     out.close();
 }
@@ -233,6 +237,7 @@ void CodeGenerator::GenerateParser() {
     out << "#include <stack>\n";
     out << "#include <vector>\n";
     out << "\n";
+    out << "#include \"ParseTreeGenerator.h\"\n";
     out << "#include \"Types.h\"\n";
     out << "\n";
     out << "std::string QualName(Token token);\n";
@@ -323,7 +328,7 @@ void CodeGenerator::GenerateParser() {
     out << "    Parser();\n";
     out << "\n";
     out << "    void Parse(const std::vector<Terminal> &stream);\n";
-    out << "    std::shared_ptr<ParseTreeNode> GetParseTree() const;\n";
+    out << "    ParseTree GetParseTree() const;\n";
     out << "\n";
     out << "private:\n";
     out << "    void Clear();\n";
@@ -437,8 +442,8 @@ void CodeGenerator::GenerateParser() {
     out << "    }\n";
     out << "}\n";
     out << "\n";
-    out << "std::shared_ptr<ParseTreeNode> Parser::GetParseTree() const {\n";
-    out << "    return node_stack_.top();\n";
+    out << "ParseTree Parser::GetParseTree() const {\n";
+    out << "    return ParseTree(node_stack_.top());\n";
     out << "}\n";
     out << "\n";
     out << "void Parser::Clear() {\n";
@@ -460,17 +465,45 @@ void CodeGenerator::GenerateParser() {
 // TODO(helloclock): improve api
 void CodeGenerator::GenerateTreeGenerators() {
     std::ofstream out(folder_ + "/include/ParseTreeGenerator.h");
+    out << "#pragma once\n";
+    out << "\n";
     out << "#include <nlohmann/json.hpp>\n";
     out << "\n";
     out << "#include \"Types.h\"\n";
     out << "\n";
     out << "using json = nlohmann::ordered_json;\n";
     out << "\n";
+    out << "class ParseTreeVisitor {\n";
+    out << "public:\n";
+    out << "    virtual void VisitTerminal(const Terminal &t) = 0;\n";
+    out << "    virtual void VisitNonTerminal(const NonTerminal &nt) = 0;\n";
+    out << "    virtual ~ParseTreeVisitor() = default;\n";
+    out << "};\n";
+    out << "\n";
+    out << "struct ParseTreeNode {\n";
+    out << "    Token value;\n";
+    out << "    std::vector<std::shared_ptr<ParseTreeNode>> children;\n";
+    out << "\n";
+    out << "    void Accept(ParseTreeVisitor &visitor) const;\n";
+    out << "};\n";
+    out << "\n";
+    out << "class ParseTree {\n";
+    out << "public:\n";
+    out << "    explicit ParseTree(std::shared_ptr<ParseTreeNode> root);\n";
+    out << "\n";
+    out << "    std::shared_ptr<ParseTreeNode> GetRoot() const;\n";
+    out << "\n";
+    out << "    void Accept(ParseTreeVisitor &visitor) const;\n";
+    out << "\n";
+    out << "private:\n";
+    out << "    std::shared_ptr<ParseTreeNode> root_;\n";
+    out << "};\n";
+    out << "\n";
     out << "class JsonTreeGenerator {\n";
     out << "public:\n";
     out << "    JsonTreeGenerator(const std::string &filename);\n";
     out << "\n";
-    out << "    void Generate(std::shared_ptr<ParseTreeNode> root);\n";
+    out << "    void Generate(ParseTree tree);\n";
     out << "\n";
     out << "private:\n";
     out << "    json GenerateForNode(std::shared_ptr<ParseTreeNode> node);\n";
@@ -485,13 +518,35 @@ void CodeGenerator::GenerateTreeGenerators() {
     out << "\n";
     out << "#include \"Types.h\"\n";
     out << "\n";
+    out << "void ParseTreeNode::Accept(ParseTreeVisitor &visitor) const {\n";
+    out << "    if (IsTerminal(value)) {\n";
+    out << "        visitor.VisitTerminal(std::get<Terminal>(value));\n";
+    out << "    } else {\n";
+    out << "        visitor.VisitNonTerminal(std::get<NonTerminal>(value));\n";
+    out << "    }\n";
+    out << "    for (const auto &child : children) {\n";
+    out << "        child->Accept(visitor);\n";
+    out << "    }\n";
+    out << "}\n";
+    out << "\n";
+    out << "ParseTree::ParseTree(std::shared_ptr<ParseTreeNode> root) "
+           ": root_(root) {\n";
+    out << "}\n";
+    out << "\n";
+    out << "std::shared_ptr<ParseTreeNode> ParseTree::GetRoot() const {\n";
+    out << "    return root_;\n";
+    out << "}\n";
+    out << "\n";
+    out << "void ParseTree::Accept(ParseTreeVisitor &visitor) const {\n";
+    out << "    root_->Accept(visitor);\n";
+    out << "}\n";
+    out << "\n";
     out << "JsonTreeGenerator::JsonTreeGenerator(const std::string &filename) "
            ": filename_(filename) {\n";
     out << "}\n";
     out << "\n";
-    out << "void JsonTreeGenerator::Generate(std::shared_ptr<ParseTreeNode> "
-           "root) {\n";
-    out << "    json tree = GenerateForNode(root);\n";
+    out << "void JsonTreeGenerator::Generate(ParseTree parse_tree) {\n";
+    out << "    json tree = GenerateForNode(parse_tree.GetRoot());\n";
     out << "    std::ofstream out(filename_);\n";
     out << "    out << tree.dump(4);\n";
     out << "}\n";
@@ -523,6 +578,8 @@ void CodeGenerator::GenerateTreeGenerators() {
 
 void CodeGenerator::GenerateMain() {
     std::ofstream out(folder_ + "/apps/main.cpp");
+    out << "#include <iostream>\n";
+    out << "\n";
     out << "#include \"ParseTreeGenerator.h\"\n";
     out << "#include \"Parser.h\"\n";
     out << "#include \"Types.h\"\n";
@@ -533,13 +590,33 @@ void CodeGenerator::GenerateMain() {
     out << "// to a sequence of `Terminal`.\n";
     out << "extern std::vector<Terminal> Lex(const char *filename);\n";
     out << "\n";
+    out << "// This is an example visitor for the parse tree\n";
+    out << "class PrintVisitor : public ParseTreeVisitor {\n";
+    out << "public:\n";
+    out << "    void VisitTerminal(const Terminal &t) override {\n";
+    out << "        std::cout << \"Terminal{\" << t.name << \"}\" << "
+           "std::endl;\n";
+    out << "    }\n";
+    out << "    void VisitNonTerminal(const NonTerminal &nt) override {\n";
+    out << "        std::cout << \"NonTerminal{\" << nt.name << \"}\" << "
+           "std::endl;\n";
+    out << "    }\n";
+    out << "};\n";
+    out << "\n";
     out << "int main () {\n";
     out << "    const char *filename = \"file\";\n";
     out << "    std::vector<Terminal> stream = Lex(filename);\n";
     out << "    Parser parser;\n";
     out << "    parser.Parse(stream);\n";
+    out << "\n";
+    out << "    // An example of how to generate a json tree from the parse "
+           "tree\n";
     out << "    JsonTreeGenerator jtg(\"tree.json\");\n";
     out << "    jtg.Generate(parser.GetParseTree());\n";
+    out << "\n";
+    out << "    // An example of how to traverse a tree with a visitor\n";
+    out << "    PrintVisitor visitor;\n";
+    out << "    parser.GetParseTree().Accept(visitor);\n";
     out << "    return 0;\n";
     out << "}\n";
     out.close();
