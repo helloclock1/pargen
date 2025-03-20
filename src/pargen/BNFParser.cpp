@@ -1,6 +1,20 @@
 #include "BNFParser.h"
 
-#include <stdexcept>
+#include "Entities.h"
+
+GrammarParserError::GrammarParserError(const std::string &msg, size_t line)
+    : msg_(ConstructMessage(msg, line)) {
+}
+
+const char *GrammarParserError::what() const noexcept {
+    return msg_.c_str();
+}
+
+std::string GrammarParserError::ConstructMessage(
+    const std::string &msg, size_t line
+) {
+    return "[" + std::to_string(line) + "]: " + msg;
+}
 
 GrammarParser::GrammarParser(std::istream *in) : in_(in) {
 }
@@ -8,12 +22,13 @@ GrammarParser::GrammarParser(std::istream *in) : in_(in) {
 void GrammarParser::Parse() {
     while (!PeekAt(EOF)) {
         // invariant: here in_ always peeks at line beginning
+        ++line_;
         SkipWS();
         ParseLine();
         GetChar();
     }
     if (g_.rules_.empty()) {
-        throw std::runtime_error("Empty grammar");
+        throw GrammarParserError("Empty grammar", line_);
     }
     NonTerminal first_rule = g_.rules_[0].lhs;
     g_.rules_.insert(g_.rules_.cbegin(), Rule{NonTerminal{"S'"}, {first_rule}});
@@ -31,9 +46,10 @@ int GrammarParser::GetChar() {
 int GrammarParser::GetChar(int expected) {
     int c = GetChar();
     if (c != expected) {
-        throw std::runtime_error(
-            "Unexpected character: `" + std::string(1, c) + "` != `" +
-            std::string(1, expected) + "`"
+        throw GrammarParserError(
+            "Unexpected character: `" + (c != -1 ? std::string(1, c) : "EOF") +
+                "` != `" + std::string(1, expected) + "`",
+            line_
         );
     }
     return c;
@@ -62,6 +78,7 @@ void GrammarParser::ParseLine() {
     SkipWS();
     GetChar('=');
     SkipWS();
+    size_t rule_number = 1;
     if (std::holds_alternative<Terminal>(lhs)) {
         Terminal t = std::get<Terminal>(lhs);
         if (t.name_ == "IGNORE") {
@@ -69,7 +86,10 @@ void GrammarParser::ParseLine() {
             return;
         }
         if (t.repr_.empty()) {
-            throw std::runtime_error("Can't assign a regex to a quote terminal."
+            throw GrammarParserError(
+                "Can't assign a regex to a quote terminal; try removing "
+                "surrounding quotes on LHS",
+                line_
             );
         }
         std::string regex;
@@ -87,18 +107,12 @@ void GrammarParser::ParseLine() {
             SkipWS();
             Production prod = ParseRule();
             if (prod.empty()) {
-                char response;
-                do {
-                    std::cout << "Encountered an empty production #k on line "
-                                 "n, did you want "
-                                 "it to be an empty string? If not, the "
-                                 "production will "
-                                 "be ignored [y/n]: ";
-                    std::cin >> response;
-                } while (!(response == 'y' || response == 'n'));
-                if (response == 'y') {
-                    prod = {Terminal{""}};
-                }
+                throw GrammarParserError(
+                    "Empty production instead of rule #" +
+                        std::to_string(rule_number) +
+                        "; try removing duplicate `|`",
+                    line_
+                );
             } else {
                 g_.rules_.push_back(Rule{nt_lhs, prod});
             }
@@ -106,22 +120,44 @@ void GrammarParser::ParseLine() {
             if (PeekAt('|')) {
                 GetChar();
             }
+            ++rule_number;
         }
     } else {
-        throw std::logic_error("Unknown token type encountered");
+        throw GrammarParserError("Unknown token type encountered", line_);
     }
 }
 
 std::vector<Token> GrammarParser::ParseRule() {
     std::vector<Token> production;
+    bool has_epsilon = false;
     while (!(PeekAt('\n') || PeekAt(EOF) || PeekAt('|'))) {
         Token token = ParseToken();
         bool is_eps = false;
         if (std::holds_alternative<Terminal>(token)) {
             Terminal t = std::get<Terminal>(token);
-            if (!t.repr_.empty() && t.name_ == "EPSILON") {
-                is_eps = true;
-                token = Terminal{""};
+            if (!t.repr_.empty()) {
+                if (t.name_ == "EPSILON") {
+                    is_eps = true;
+                    has_epsilon = true;
+                    token = Terminal{""};
+                } else {
+                    bool found = false;
+                    for (const Token &token : g_.tokens_) {
+                        if (std::holds_alternative<Terminal>(token) &&
+                            std::get<Terminal>(token).name_ == t.name_) {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) {
+                        throw GrammarParserError(
+                            "Unknown terminal encountered: " + t.name_ +
+                                "; if the token is defined after this line, "
+                                "try moving it before the current line",
+                            line_
+                        );
+                    }
+                }
             }
         }
         production.push_back(token);
@@ -129,6 +165,13 @@ std::vector<Token> GrammarParser::ParseRule() {
             g_.tokens_.insert(token);
         }
         SkipWS();
+    }
+    if (has_epsilon && production.size() != 1) {
+        throw GrammarParserError(
+            "Epsilon can only be used in a single-token production; try "
+            "getting rid of unnecessary epsilon productions",
+            line_
+        );
     }
     return production;
 }
@@ -139,7 +182,7 @@ Token GrammarParser::ParseToken() {
         NonTerminal result = NonTerminal{ParseName()};
         char c = GetChar();
         if (c != '>') {
-            throw std::runtime_error("Unterminated `<`");
+            throw GrammarParserError("Unterminated `<`", line_);
         }
         return result;
     } else if (PeekAt('\'') || PeekAt('"')) {
@@ -147,8 +190,10 @@ Token GrammarParser::ParseToken() {
     } else if (std::isalpha(Peek())) {
         return Terminal{ParseName(), " "};
     }
-    throw std::runtime_error(
-        "Unknown token, peeking at `" + std::string(1, Peek()) + "`"
+    throw GrammarParserError(
+        "Unknown token, peeking at `" +
+            (PeekAt(EOF) ? "EOF" : std::string(1, Peek())) + "`",
+        line_
     );
 }
 
@@ -159,7 +204,7 @@ Terminal GrammarParser::ParseQuoteTerminal() {
         lexeme += GetChar();
     }
     if (!GetChar(init)) {
-        throw std::runtime_error("Unterminated quote terminal");
+        throw GrammarParserError("Unterminated quote terminal", line_);
     }
     return Terminal{lexeme};
 }

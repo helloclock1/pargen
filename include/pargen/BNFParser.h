@@ -9,6 +9,17 @@
 
 #include "Entities.h"
 
+class GrammarParserError : public std::exception {
+public:
+    explicit GrammarParserError(const std::string &msg, size_t line);
+
+    const char *what() const noexcept override;
+
+private:
+    static std::string ConstructMessage(const std::string &msg, size_t line);
+    std::string msg_;
+};
+
 class GrammarParser {
 public:
     GrammarParser(std::istream *in);
@@ -32,5 +43,6 @@ private:
     void ParseIgnore();
 
     std::istream *in_;
+    size_t line_ = 0;
     Grammar g_;
 };

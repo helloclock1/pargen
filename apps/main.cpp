@@ -15,7 +15,12 @@ int main(int argc, char **argv) {
     std::string filename = argv[1];
     std::ifstream in(filename);
     GrammarParser gp(&in);
-    gp.Parse();
+    try {
+        gp.Parse();
+    } catch (const GrammarParserError &e) {
+        std::cerr << "GrammarParserError" << e.what() << std::endl;
+        return 1;
+    }
     Grammar g = gp.Get();
     ParserGenerator a(g);
     ActionTable at = a.GetActionTable();
