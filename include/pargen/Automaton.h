@@ -28,6 +28,7 @@ struct Action {
 using ActionTable = std::vector<std::unordered_map<std::string, Action>>;
 using GotoTable =
     std::unordered_map<size_t, std::unordered_map<NonTerminal, size_t>>;
+using FollowSets = std::unordered_map<NonTerminal, std::set<Terminal>>;
 
 std::string QualName(Token token);
 
@@ -49,6 +50,7 @@ public:
 
     ActionTable GetActionTable() const;
     GotoTable GetGotoTable() const;
+    FollowSets GetFollowSets() const;
 
     struct Item {
         Item(size_t rule_number, size_t dot_pos, Terminal lookahead);
@@ -78,6 +80,9 @@ private:
     std::map<Token, std::set<Terminal>> first_;
     void ComputeFirst();
     std::set<Terminal> FirstForSequence(const std::vector<Token> &seq);
+
+    FollowSets follow_;
+    void ComputeFollow();
 
     std::set<Item> Closure(const std::set<Item> &items);
     State Goto(State state, Token next);

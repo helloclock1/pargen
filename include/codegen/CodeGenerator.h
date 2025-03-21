@@ -17,7 +17,8 @@ class CodeGenerator {
 public:
     CodeGenerator(
         const std::string &folder, ActionTable &at, GotoTable &gt,
-        const Grammar &g, bool add_json_generator, size_t json_indents
+        FollowSets &fs, const Grammar &g, bool add_json_generator,
+        size_t json_indents
     );
     void Generate();
 
@@ -30,6 +31,7 @@ private:
     Grammar g_;
     ActionTable &at_;
     GotoTable &gt_;
+    FollowSets &fs_;
 
     bool add_json_generator_;
     size_t json_indents_;

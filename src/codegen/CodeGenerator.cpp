@@ -15,8 +15,8 @@ const char *CodeGeneratorError::what() const noexcept {
 }
 
 CodeGenerator::CodeGenerator(
-    const std::string &folder, ActionTable &at, GotoTable &gt, const Grammar &g,
-    bool add_json_generator, size_t json_indents
+    const std::string &folder, ActionTable &at, GotoTable &gt, FollowSets &fs,
+    const Grammar &g, bool add_json_generator, size_t json_indents
 )
     : folder_(
           folder.starts_with('/')
@@ -27,6 +27,7 @@ CodeGenerator::CodeGenerator(
       ),
       at_(at),
       gt_(gt),
+      fs_(fs),
       g_(g),
       add_json_generator_(add_json_generator),
       json_indents_(json_indents) {
@@ -46,12 +47,14 @@ void CodeGenerator::GenerateParser() {
     out << "#pragma once\n";
     out << "\n";
     out << "#include <algorithm>\n";
+    out << "#include <iostream>\n";
     out << "#include <fstream>\n";
     out << "#include <memory>\n";
     if (add_json_generator_) {
         out << "#include <nlohmann/json.hpp>\n";
     }
     out << "#include <ranges>\n";
+    out << "#include <set>\n";
     out << "#include <stack>\n";
     out << "#include <stdexcept>\n";
     out << "#include <string>\n";
@@ -91,6 +94,9 @@ void CodeGenerator::GenerateParser() {
     out << "};  // namespace std\n";
     out << "\n";
     out << "namespace p {\n";
+    out << "bool operator<(const Terminal &lhs, const Terminal &rhs) {\n";
+    out << "    return lhs.name < rhs.name;\n";
+    out << "}\n";
     out << "using Production = std::vector<Token>;\n";
     out << "\n";
     out << "struct Rule {\n";
@@ -116,6 +122,8 @@ void CodeGenerator::GenerateParser() {
            "Action>>;\n";
     out << "using GotoTable = std::unordered_map<size_t, "
            "std::unordered_map<NonTerminal, size_t>>;\n";
+    out << "using FollowSet = std::set<Terminal>;\n";
+    out << "using FollowSets = std::unordered_map<NonTerminal, FollowSet>;\n";
     out << "\n";
     out << "class ParserTables {\n";
     out << "public:\n";
@@ -194,6 +202,33 @@ void CodeGenerator::GenerateParser() {
     }
     out << "        };\n";
     out << "\n";
+    out << "        return table;\n";
+    out << "    }\n";
+    out << "\n";
+    out << "    static const FollowSet GetFollowSetFor(const NonTerminal &nt) "
+           "{\n";
+    out << "        return GetFollowSets().at(nt);\n";
+    out << "    }\n";
+    out << "\n";
+    out << "private:\n";
+    out << "    static const FollowSets GetFollowSets() {\n";
+    out << "        static const FollowSets table = {\n";
+    for (const auto &[nt, follow_set] : fs_) {
+        out << "            ";
+        out << "{NonTerminal{\"" << nt.name_ << "\"}, {\n";
+        size_t j = 0;
+        for (const auto &follow_nt : follow_set) {
+            out << "                ";
+            out << "Terminal{\"" << follow_nt.name_ << "\"}";
+            if (j != follow_set.size() - 1) {
+                out << ",";
+            }
+            ++j;
+            out << "\n";
+        }
+        out << "            }},\n";
+    }
+    out << "        };\n";
     out << "        return table;\n";
     out << "    }\n";
     out << "};\n";
@@ -296,7 +331,13 @@ void CodeGenerator::GenerateParser() {
     out << "        bool done = false;\n";
     out << "        while (!done) {\n";
     out << "            size_t s = state_stack_.top();\n";
-    out << "            Action action = action_.at(s).at(QualName(a));\n";
+    out << "            auto entry = action_.at(s);\n";
+    out << "            Action action;\n";
+    out << "            if (entry.find(QualName(a)) != entry.end()) {\n";
+    out << "                action = entry.at(QualName(a));\n";
+    out << "            } else {\n";
+    out << "                action = Action{ActionType::ERROR};\n";
+    out << "            }\n";
     out << "            switch (action.type) {\n";
     out << "                case ActionType::SHIFT: {\n";
     out << "                    auto new_node = "
@@ -329,14 +370,34 @@ void CodeGenerator::GenerateParser() {
     out << "                    node_stack_.push(new_node);\n";
     out << "                    size_t t = state_stack_.top();\n";
     out << "                    state_stack_.push(goto_.at(t).at(rule.lhs));\n";
+    out << "                    current_nt_ = rule.lhs;\n";
     out << "                    break;\n";
     out << "                }\n";
     out << "                case ActionType::ACCEPT:\n";
     out << "                    done = true;\n";
     out << "                    break;\n";
-    out << "                case ActionType::ERROR:\n";
-    out << "                    throw std::runtime_error(\"PANIC PANIC "
-           "PANIC\");\n";
+    out << "                case ActionType::ERROR: {\n";
+    out << "                    std::cerr << \"Error, trying to recover\" << "
+           "std::endl;\n";
+    out << "                    FollowSet follow = "
+           "ParserTables::GetFollowSetFor(current_nt_);\n";
+    out << "                    bool recovered = false;\n";
+    out << "                    while (!seq_.empty() && !recovered) {\n";
+    out << "                        if (follow.find(seq_.top()) != "
+           "follow.end()) {\n";
+    out << "                            recovered = true;\n";
+    out << "                        }\n";
+    out << "                        seq_.pop();\n";
+    out << "                    }\n";
+    out << "                    if (!recovered) {\n";
+    out << "                        std::cerr << \"Error, cannot recover\" << "
+           "std::endl;\n";
+    out << "                        exit(1);\n";
+    out << "                    }\n";
+    out << "                    if (!seq_.empty()) {\n";
+    out << "                        a = seq_.top();\n";
+    out << "                    }\n";
+    out << "                }\n";
     out << "            }\n";
     out << "        }\n";
     out << "    }\n";
@@ -400,6 +461,8 @@ void CodeGenerator::GenerateParser() {
     out << "    std::stack<Terminal> seq_;\n";
     out << "    std::stack<size_t> state_stack_;\n";
     out << "    std::stack<std::shared_ptr<ParseTreeNode>> node_stack_;\n";
+    out << "\n";
+    out << "    NonTerminal current_nt_;\n";
     out << "\n";
     out << "    inline static const ActionTable action_ = "
            "ParserTables::GetActionTable();\n";

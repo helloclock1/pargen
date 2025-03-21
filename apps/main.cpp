@@ -70,9 +70,10 @@ int main(int argc, char **argv) {
     }
     ActionTable at = a.GetActionTable();
     GotoTable gt = a.GetGotoTable();
+    FollowSets fs = a.GetFollowSets();
     try {
         CodeGenerator codegen(
-            vm["generate-to"].as<std::string>(), at, gt, g,
+            vm["generate-to"].as<std::string>(), at, gt, fs, g,
             vm.count("json-tree"), vm["indent"].as<size_t>()
         );
         codegen.Generate();

@@ -1,6 +1,7 @@
 #include "Automaton.h"
 
 #include <boost/container_hash/hash_fwd.hpp>
+#include <iostream>
 
 #include "Entities.h"
 
@@ -55,6 +56,7 @@ ParserGenerator::ParserGenerator(const Grammar &g) : g_(g) {
 
 void ParserGenerator::Generate() {
     ComputeFirst();
+    ComputeFollow();
     BuildCanonicalCollection();
     BuildActionTable();
     BuildGotoTable();
@@ -66,6 +68,10 @@ ActionTable ParserGenerator::GetActionTable() const {
 
 GotoTable ParserGenerator::GetGotoTable() const {
     return goto_;
+}
+
+FollowSets ParserGenerator::GetFollowSets() const {
+    return follow_;
 }
 
 void ParserGenerator::BuildCanonicalCollection() {
@@ -268,6 +274,43 @@ std::set<Terminal> ParserGenerator::FirstForSequence(
         result.insert(EPSILON);
     }
     return result;
+}
+
+void ParserGenerator::ComputeFollow() {
+    follow_[g_[0].lhs] = {Terminal{"$", "$"}};
+    bool changed = true;
+    while (changed) {
+        changed = false;
+        for (const Rule &rule : g_.rules_) {
+            for (size_t i = 0; i < rule.prod.size(); ++i) {
+                if (IsTerminal(rule.prod[i])) {
+                    continue;
+                }
+                NonTerminal token = std::get<NonTerminal>(rule.prod[i]);
+                size_t prev_size = follow_[token].size();
+                if (i != rule.prod.size() - 1) {
+                    std::vector<Token> beta(
+                        rule.prod.begin() + i + 1, rule.prod.end()
+                    );
+                    auto to_add = FirstForSequence(beta);
+                    if (to_add.contains(EPSILON)) {
+                        to_add.erase(to_add.find(EPSILON));
+                        follow_[token].insert(
+                            follow_[rule.lhs].begin(), follow_[rule.lhs].end()
+                        );
+                    }
+                    follow_[token].insert(to_add.begin(), to_add.end());
+                } else {
+                    follow_[token].insert(
+                        follow_[rule.lhs].begin(), follow_[rule.lhs].end()
+                    );
+                }
+                if (follow_[token].size() != prev_size) {
+                    changed = true;
+                }
+            }
+        }
+    }
 }
 
 std::set<ParserGenerator::Item> ParserGenerator::Closure(
