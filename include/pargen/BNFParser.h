@@ -4,6 +4,7 @@
 #include <cstring>
 #include <iostream>
 #include <istream>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -22,7 +23,7 @@ private:
 
 class GrammarParser {
 public:
-    GrammarParser(std::istream *in);
+    GrammarParser(std::unique_ptr<std::istream> in);
 
     void Parse();
     void Print();
@@ -42,7 +43,7 @@ private:
     std::string ParseName();
     void ParseIgnore();
 
-    std::istream *in_;
+    std::unique_ptr<std::istream> in_;
     size_t line_ = 0;
     Grammar g_;
 };

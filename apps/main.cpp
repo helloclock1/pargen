@@ -53,13 +53,12 @@ int main(int argc, char **argv) {
     }
 
     std::string filename = vm["input"].as<std::string>();
-    std::ifstream in(filename);
-    GrammarParser gp(&in);
+    GrammarParser gp(std::make_unique<std::ifstream>(filename));
     try {
         gp.Parse();
     } catch (const GrammarParserError &e) {
         std::cerr << "GrammarParserError" << e.what() << std::endl;
-        return 1;
+        return 2;
     }
     Grammar g = gp.Get();
     ParserGenerator a(g);
@@ -73,7 +72,7 @@ int main(int argc, char **argv) {
         codegen.Generate();
     } catch (const CodeGeneratorError &e) {
         std::cerr << "CodeGeneratorError: " << e.what() << std::endl;
-        return 1;
+        return 4;
     }
     return 0;
 }

@@ -16,7 +16,8 @@ std::string GrammarParserError::ConstructMessage(
     return "[" + std::to_string(line) + "]: " + msg;
 }
 
-GrammarParser::GrammarParser(std::istream *in) : in_(in) {
+GrammarParser::GrammarParser(std::unique_ptr<std::istream> in)
+    : in_(std::move(in)) {
 }
 
 void GrammarParser::Parse() {
