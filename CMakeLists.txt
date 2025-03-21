@@ -4,7 +4,7 @@ project(ParserGenerator LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Boost REQUIRED)
+find_package(Boost REQUIRED COMPONENTS program_options)
 
 add_library(pargen_lib
     src/pargen/Automaton.cpp
@@ -23,6 +23,6 @@ target_include_directories(codegen_lib PUBLIC
 
 add_executable(gen apps/main.cpp)
 
-target_link_libraries(gen PRIVATE pargen_lib codegen_lib)
+target_link_libraries(gen PRIVATE pargen_lib codegen_lib Boost::program_options)
 
 target_compile_options(gen PRIVATE -Werror -Wall -Wextra -Wpedantic -g)

@@ -1,14 +1,39 @@
 #include "CodeGenerator.h"
 
 #include <filesystem>
+#include <fstream>
+#include <iostream>
 
 #include "Automaton.h"
 #include "Entities.h"
 
+CodeGeneratorError::CodeGeneratorError(const std::string &msg) : msg_(msg) {
+}
+
+const char *CodeGeneratorError::what() const noexcept {
+    return msg_.c_str();
+}
+
 CodeGenerator::CodeGenerator(
-    const std::string &folder, ActionTable &at, GotoTable &gt, const Grammar &g
+    const std::string &folder, ActionTable &at, GotoTable &gt, const Grammar &g,
+    bool add_json_generator, size_t json_indents
 )
-    : folder_(folder), at_(at), gt_(gt), g_(g) {
+    : folder_(
+          folder.starts_with('/')
+              ? throw CodeGeneratorError(
+                    "Preceding slashes are not allowed for folder name"
+                )
+              : folder
+      ),
+      at_(at),
+      gt_(gt),
+      g_(g),
+      add_json_generator_(add_json_generator),
+      json_indents_(json_indents) {
+    bool created = std::filesystem::create_directories(folder_);
+    if (!created) {
+        throw CodeGeneratorError("Could not create directory " + folder_);
+    }
 }
 
 void CodeGenerator::Generate() {
@@ -17,17 +42,16 @@ void CodeGenerator::Generate() {
 }
 
 void CodeGenerator::GenerateParser() {
-    std::filesystem::create_directories(folder_ + "/tmp");
     std::ofstream out(folder_ + "/Parser.hpp");
     out << "#pragma once\n";
     out << "\n";
     out << "#include <algorithm>\n";
     out << "#include <fstream>\n";
     out << "#include <memory>\n";
-    out << "#include <nlohmann/json.hpp>\n";
-    out << "#include <optional>\n";
+    if (add_json_generator_) {
+        out << "#include <nlohmann/json.hpp>\n";
+    }
     out << "#include <ranges>\n";
-    out << "#include <set>\n";
     out << "#include <stack>\n";
     out << "#include <stdexcept>\n";
     out << "#include <string>\n";
@@ -36,9 +60,6 @@ void CodeGenerator::GenerateParser() {
     out << "#include <vector>\n";
     out << "\n";
     out << "#include \"LexerFwd.hpp\"\n";
-    out << "\n";
-    out << "namespace p {\n";
-    out << "};  // namespace p\n";
     out << "\n";
     out << "namespace std {\n";
     out << "template <>\n";
@@ -70,11 +91,6 @@ void CodeGenerator::GenerateParser() {
     out << "};  // namespace std\n";
     out << "\n";
     out << "namespace p {\n";
-    out << "using json = nlohmann::ordered_json;\n";
-    out << "\n";
-    out << "\n";
-    out << "bool operator<(const Token &a, const Token &b);\n";
-    out << "\n";
     out << "using Production = std::vector<Token>;\n";
     out << "\n";
     out << "struct Rule {\n";
@@ -83,19 +99,6 @@ void CodeGenerator::GenerateParser() {
     out << "};\n";
     out << "\n";
     out << "using Grammar = std::vector<Rule>;\n";
-    out << "\n";
-    out << "struct Item {\n";
-    out << "    Item(size_t rule_number, size_t dot_pos);\n";
-    out << "    size_t rule_number;\n";
-    out << "    size_t dot_pos;\n";
-    out << "\n";
-    out << "    friend bool operator<(const Item &a, const Item &b);\n";
-    out << "    bool DotAtEnd() const;\n";
-    out << "    std::optional<Token> NextToken() const;\n";
-    out << "    Rule GetRule() const;\n";
-    out << "};\n";
-    out << "\n";
-    out << "using State = std::set<Item>;\n";
     out << "\n";
     out << "enum class ActionType {\n";
     out << "    SHIFT,\n";
@@ -113,19 +116,6 @@ void CodeGenerator::GenerateParser() {
            "Action>>;\n";
     out << "using GotoTable = std::unordered_map<size_t, "
            "std::unordered_map<NonTerminal, size_t>>;\n";
-    out << "\n";
-    out << "std::string QualName(Token token) {\n";
-    out << "    if (std::holds_alternative<Terminal>(token)) {\n";
-    out << "        Terminal t = std::get<Terminal>(token);\n";
-    out << "        if (t.repr.empty()) {\n";
-    out << "            return \"T_\" + t.name;\n";
-    out << "        } else {\n";
-    out << "            return \"R_\" + t.name;\n";
-    out << "        }\n";
-    out << "    } else {\n";
-    out << "        return \"NT_\" + std::get<NonTerminal>(token).name;\n";
-    out << "    }\n";
-    out << "}\n";
     out << "\n";
     out << "class ParserTables {\n";
     out << "public:\n";
@@ -250,43 +240,49 @@ void CodeGenerator::GenerateParser() {
     out << "    std::shared_ptr<ParseTreeNode> root_;\n";
     out << "};\n";
     out << "\n";
-    out << "class JsonTreeGenerator {\n";
-    out << "public:\n";
-    out << "    JsonTreeGenerator(const std::string &filename) : "
-           "filename_(filename) {}\n";
-    out << "\n";
-    out << "    void Generate(ParseTree tree) {\n";
-    out << "        json j = GenerateForNode(tree.GetRoot());\n";
-    out << "        std::ofstream out(filename_);\n";
-    out << "        out << j.dump(4);\n";
-    out << "    }\n";
-    out << "\n";
-    out << "private:\n";
-    out << "    json GenerateForNode(std::shared_ptr<ParseTreeNode> node){\n";
-    out << "        json tree;\n";
-    out << "        if (std::holds_alternative<Terminal>(node->value)) {\n";
-    out << "            Terminal t = std::get<Terminal>(node->value);\n";
-    out << "            tree[\"value\"] = t.name;\n";
-    out << "            if (!t.repr.empty()) {\n";
-    out << "                tree[\"lexeme\"] = t.repr;\n";
-    out << "            }\n";
-    out << "        } else {\n";
-    out << "            tree[\"type\"] = "
-           "std::get<NonTerminal>(node->value).name;\n";
-    out << "        }\n";
-    out << "        if (node->children.empty()) {\n";
-    out << "            return tree;\n";
-    out << "        }\n";
-    out << "        for (const auto child : node->children) {\n";
-    out << "            "
-           "tree[\"children\"].push_back(GenerateForNode(child));\n";
-    out << "        }\n";
-    out << "        return tree;\n";
-    out << "    }\n";
-    out << "\n";
-    out << "    std::string filename_;\n";
-    out << "};\n";
-    out << "\n";
+    if (add_json_generator_) {
+        out << "using json = nlohmann::ordered_json;\n";
+        out << "\n";
+        out << "class JsonTreeGenerator {\n";
+        out << "public:\n";
+        out << "    JsonTreeGenerator(const std::string &filename) : "
+               "filename_(filename) {}\n";
+        out << "\n";
+        out << "    void Generate(ParseTree tree) {\n";
+        out << "        json j = GenerateForNode(tree.GetRoot());\n";
+        out << "        std::ofstream out(filename_);\n";
+        out << "        out << j.dump(" << std::to_string(json_indents_)
+            << ");\n";
+        out << "    }\n";
+        out << "\n";
+        out << "private:\n";
+        out << "    json GenerateForNode(std::shared_ptr<ParseTreeNode> "
+               "node){\n";
+        out << "        json tree;\n";
+        out << "        if (std::holds_alternative<Terminal>(node->value)) {\n";
+        out << "            Terminal t = std::get<Terminal>(node->value);\n";
+        out << "            tree[\"value\"] = t.name;\n";
+        out << "            if (!t.repr.empty()) {\n";
+        out << "                tree[\"lexeme\"] = t.repr;\n";
+        out << "            }\n";
+        out << "        } else {\n";
+        out << "            tree[\"type\"] = "
+               "std::get<NonTerminal>(node->value).name;\n";
+        out << "        }\n";
+        out << "        if (node->children.empty()) {\n";
+        out << "            return tree;\n";
+        out << "        }\n";
+        out << "        for (const auto& child : node->children) {\n";
+        out << "            "
+               "tree[\"children\"].push_back(GenerateForNode(child));\n";
+        out << "        }\n";
+        out << "        return tree;\n";
+        out << "    }\n";
+        out << "\n";
+        out << "    std::string filename_;\n";
+        out << "};\n";
+        out << "\n";
+    }
     out << "class Parser {\n";
     out << "public:\n";
     out << "    void Parse(const std::vector<Terminal> &stream) {\n";
@@ -300,7 +296,7 @@ void CodeGenerator::GenerateParser() {
     out << "        bool done = false;\n";
     out << "        while (!done) {\n";
     out << "            size_t s = state_stack_.top();\n";
-    out << "            Action action = action_[s][QualName(a)];\n";
+    out << "            Action action = action_.at(s).at(QualName(a));\n";
     out << "            switch (action.type) {\n";
     out << "                case ActionType::SHIFT: {\n";
     out << "                    auto new_node = "
@@ -332,7 +328,7 @@ void CodeGenerator::GenerateParser() {
            "new_children});\n";
     out << "                    node_stack_.push(new_node);\n";
     out << "                    size_t t = state_stack_.top();\n";
-    out << "                    state_stack_.push(goto_[t][rule.lhs]);\n";
+    out << "                    state_stack_.push(goto_.at(t).at(rule.lhs));\n";
     out << "                    break;\n";
     out << "                }\n";
     out << "                case ActionType::ACCEPT:\n";
@@ -364,7 +360,7 @@ void CodeGenerator::GenerateParser() {
     out << "        }\n";
     out << "    }\n";
     out << "\n";
-    out << "    Grammar g_ = {\n";
+    out << "    inline static const Grammar g_ = {\n";
     for (const Rule &rule : g_.rules_) {
         out << "        {\n";
         out << "            NonTerminal{\"" << rule.lhs.name_ << "\"},\n";
@@ -388,20 +384,34 @@ void CodeGenerator::GenerateParser() {
     }
     out << "    };\n";
     out << "\n";
+    out << "    std::string QualName(const Token& token) {\n";
+    out << "        if (std::holds_alternative<Terminal>(token)) {\n";
+    out << "            Terminal t = std::get<Terminal>(token);\n";
+    out << "            if (t.repr.empty()) {\n";
+    out << "                return \"T_\" + t.name;\n";
+    out << "            } else {\n";
+    out << "                return \"R_\" + t.name;\n";
+    out << "            }\n";
+    out << "        } else {\n";
+    out << "            return \"NT_\" + std::get<NonTerminal>(token).name;\n";
+    out << "        }\n";
+    out << "    }\n";
+    out << "\n";
     out << "    std::stack<Terminal> seq_;\n";
     out << "    std::stack<size_t> state_stack_;\n";
     out << "    std::stack<std::shared_ptr<ParseTreeNode>> node_stack_;\n";
     out << "\n";
-    out << "    ActionTable action_ = ParserTables::GetActionTable();\n";
-    out << "    GotoTable goto_ = ParserTables::GetGotoTable();\n";
+    out << "    inline static const ActionTable action_ = "
+           "ParserTables::GetActionTable();\n";
+    out << "    inline static const GotoTable goto_ = "
+           "ParserTables::GetGotoTable();\n";
     out << "};\n";
     out << "};  // namespace p\n";
     out.close();
 }
 
 void CodeGenerator::GenerateLexer() {
-    std::filesystem::create_directories(folder_ + "/tmp");
-    std::ofstream out(folder_ + "/tmp/Lexer.l");
+    std::ofstream out(folder_ + "/Lexer.l");
     out << "%option noyywrap\n";
     out << "%{\n";
     out << "#include <cstdio>\n";
@@ -465,10 +475,17 @@ void CodeGenerator::GenerateLexer() {
     out << "%%\n";
     out.close();
 
-    std::string build_lexer_command =
-        "flex --outfile=" + folder_ + "/Lexer.cpp " + folder_ + "/tmp/Lexer.l";
-    system(build_lexer_command.c_str());
-    std::filesystem::remove_all(folder_ + "/tmp");
+    std::string build_lexer_command = "flex --outfile=" + folder_ +
+                                      "/Lexer.cpp " + folder_ +
+                                      "/Lexer.l > /dev/null 2>&1";
+    int result = std::system(build_lexer_command.c_str());
+    if (result != 0) {
+        throw CodeGeneratorError(
+            "Failed to build lexer. Check whether `flex` is installed and "
+            "available in PATH."
+        );
+    }
+    std::filesystem::remove(folder_ + "/Lexer.l");
     out = std::ofstream(folder_ + "/LexerFwd.hpp");
     out << "#pragma once\n";
     out << "\n";

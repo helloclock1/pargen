@@ -1,15 +1,23 @@
 #include <cstdlib>
 #include <cstring>
-#include <filesystem>
-#include <fstream>
 
 #include "Automaton.h"
+
+class CodeGeneratorError : public std::exception {
+public:
+    explicit CodeGeneratorError(const std::string &msg);
+
+    const char *what() const noexcept override;
+
+private:
+    std::string msg_;
+};
 
 class CodeGenerator {
 public:
     CodeGenerator(
         const std::string &folder, ActionTable &at, GotoTable &gt,
-        const Grammar &g
+        const Grammar &g, bool add_json_generator, size_t json_indents
     );
     void Generate();
 
@@ -22,4 +30,7 @@ private:
     Grammar g_;
     ActionTable &at_;
     GotoTable &gt_;
+
+    bool add_json_generator_;
+    size_t json_indents_;
 };
