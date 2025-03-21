@@ -62,6 +62,12 @@ int main(int argc, char **argv) {
     }
     Grammar g = gp.Get();
     ParserGenerator a(g);
+    try {
+        a.Generate();
+    } catch (const ParserGeneratorError &e) {
+        std::cerr << "ParserGeneratorError: " << e.what() << std::endl;
+        return 3;
+    }
     ActionTable at = a.GetActionTable();
     GotoTable gt = a.GetGotoTable();
     try {

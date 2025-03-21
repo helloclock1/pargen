@@ -42,8 +42,18 @@ std::string QualName(Token token) {
     }
 }
 
+ParserGeneratorError::ParserGeneratorError(const std::string &msg) : msg_(msg) {
+}
+
+const char *ParserGeneratorError::what() const noexcept {
+    return msg_.c_str();
+}
+
 ParserGenerator::ParserGenerator(const Grammar &g) : g_(g) {
     g_.tokens_.insert(Terminal{"$", "$"});
+}
+
+void ParserGenerator::Generate() {
     ComputeFirst();
     BuildCanonicalCollection();
     BuildActionTable();
@@ -109,14 +119,18 @@ void ParserGenerator::BuildActionTable() {
                         if (action_[i].find(key) != action_[i].end()) {
                             Action existing = action_[i][key];
                             if (existing.type_ == ActionType::REDUCE) {
-                                throw std::runtime_error(
-                                    "Shift/reduce conflict on token: " + key
+                                throw ParserGeneratorError(
+                                    "Provided grammar is ambiguous "
+                                    "(shift/reduce conflict on token: " +
+                                    key + ")"
                                 );
                             }
                             if (existing.type_ == ActionType::SHIFT &&
                                 existing.value_ != new_action.value_) {
-                                throw std::runtime_error(
-                                    "Shift/shift conflict on token: " + key
+                                throw ParserGeneratorError(
+                                    "Provided grammar is ambiguous "
+                                    "(shift/shift conflict on token: " +
+                                    key + ")"
                                 );
                             }
                         }
@@ -129,14 +143,18 @@ void ParserGenerator::BuildActionTable() {
                         if (action_[i].find(key) != action_[i].end()) {
                             Action existing = action_[i][key];
                             if (existing.type_ == ActionType::SHIFT) {
-                                throw std::runtime_error(
-                                    "Shift/reduce conflict on token: " + key
+                                throw ParserGeneratorError(
+                                    "Provided grammar is ambiguous "
+                                    "(shift/reduce conflict on token: " +
+                                    key + ")"
                                 );
                             }
                             if (existing.type_ == ActionType::REDUCE &&
                                 existing.value_ != new_action.value_) {
-                                throw std::runtime_error(
-                                    "Reduce/reduce conflict on token: " + key
+                                throw ParserGeneratorError(
+                                    "Provided grammar is ambiguous "
+                                    "(reduce/reduce conflict on token: " +
+                                    key + ")"
                                 );
                             }
                         }
@@ -158,8 +176,10 @@ void ParserGenerator::BuildActionTable() {
                     if (existing.type_ == ActionType::SHIFT ||
                         (existing.type_ == ActionType::REDUCE &&
                          existing.value_ != new_action.value_)) {
-                        throw std::runtime_error(
-                            "Conflict in action table on token: " + key
+                        throw ParserGeneratorError(
+                            "Provided grammar is ambiguous (conflict in action "
+                            "table on token: " +
+                            key + ")"
                         );
                     }
                 }

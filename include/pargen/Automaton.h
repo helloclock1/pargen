@@ -3,7 +3,6 @@
 #include <boost/bimap.hpp>
 #include <boost/container_hash/hash.hpp>
 #include <map>
-#include <memory>
 #include <optional>
 #include <set>
 #include <tuple>
@@ -32,10 +31,21 @@ using GotoTable =
 
 std::string QualName(Token token);
 
+class ParserGeneratorError : public std::exception {
+public:
+    explicit ParserGeneratorError(const std::string &msg);
+    const char *what() const noexcept override;
+
+private:
+    std::string msg_;
+};
+
 class ParserGenerator {
 public:
     ParserGenerator() = delete;
     ParserGenerator(const Grammar &g);
+
+    void Generate();
 
     ActionTable GetActionTable() const;
     GotoTable GetGotoTable() const;
