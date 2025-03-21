@@ -217,9 +217,13 @@ void CodeGenerator::GenerateParser() {
         out << "            ";
         out << "{NonTerminal{\"" << nt.name_ << "\"}, {\n";
         size_t j = 0;
-        for (const auto &follow_nt : follow_set) {
+        for (const auto &follow_t : follow_set) {
             out << "                ";
-            out << "Terminal{\"" << follow_nt.name_ << "\"}";
+            out << "Terminal{\"" << follow_t.name_ << "\"";
+            if (!follow_t.repr_.empty()) {
+                out << ", \"" << follow_t.repr_ << "\"";
+            }
+            out << "}";
             if (j != follow_set.size() - 1) {
                 out << ",";
             }
@@ -377,10 +381,19 @@ void CodeGenerator::GenerateParser() {
     out << "                    done = true;\n";
     out << "                    break;\n";
     out << "                case ActionType::ERROR: {\n";
-    out << "                    std::cerr << \"Error, trying to recover\" << "
+    out << "                    std::cerr << \"Error on token \" << "
+           "(a.repr.empty() ? a.name : a.repr) << "
+           "\", trying to recover\" << "
            "std::endl;\n";
-    out << "                    FollowSet follow = "
+    out << "                    FollowSet follow;\n";
+    out << "                    try {\n";
+    out << "                        follow = "
            "ParserTables::GetFollowSetFor(current_nt_);\n";
+    out << "                    } catch (const std::out_of_range &e) {\n";
+    out << "                        std::cerr << \"Error, cannot recover\" << "
+           "std::endl;\n";
+    out << "                        exit(1);\n";
+    out << "                    }\n";
     out << "                    bool recovered = false;\n";
     out << "                    while (!seq_.empty() && !recovered) {\n";
     out << "                        if (follow.find(seq_.top()) != "
