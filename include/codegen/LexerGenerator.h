@@ -48,6 +48,8 @@ public:
 
     /**
      * @brief Generates the lexer.
+     * @throws LexerGeneratorError if an error occurs during the generation of
+     * the lexer.
      * @note The lexer is generated using `flex` utility that often comes
      * preinstalled with UNIX-based systems.
      */

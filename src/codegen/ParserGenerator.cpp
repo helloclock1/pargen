@@ -17,13 +17,7 @@ ParserGenerator::ParserGenerator(
     const GotoTable &gt, const FollowSets &fs, bool add_json_generator,
     size_t json_indents
 )
-    : folder_(
-          folder.starts_with('/')
-              ? throw ParserGeneratorError(
-                    "Preceding slashes are not allowed for folder name"
-                )
-              : folder
-      ),
+    : folder_(folder),
       g_(g),
       at_(at),
       gt_(gt),

@@ -13,6 +13,7 @@
  * @class ParserGeneratorError
  * @brief Exception class for reporting errors in the process of generating a
  * parser.
+ * @note This error is currently not thrown anywhere in the code.
  */
 class ParserGeneratorError : public std::exception {
 public:
@@ -57,6 +58,8 @@ public:
 
     /**
      * @brief Generates the parser.
+     * @throws ParserGeneratorError if an error occurs during the generation of
+     * the parser. Check note for the ParserGeneratorError class for more.
      */
     void Generate();
 

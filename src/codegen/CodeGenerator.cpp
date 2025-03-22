@@ -3,7 +3,6 @@
 #include <exception>
 #include <filesystem>
 
-#include "Automaton.h"
 #include "Entities.h"
 #include "LexerGenerator.h"
 #include "ParserGenerator.h"

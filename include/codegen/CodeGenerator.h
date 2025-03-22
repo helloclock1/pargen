@@ -57,6 +57,9 @@ public:
 
     /**
      * @brief Generates all code for the parser.
+     * @throws CodeGeneratorError if an error occurs while generating the code,
+     * but the error is not related to either a lexer or a parser generator.
+     * Rethrows LexerGeneratorError or ParserGeneratorError if they are thrown.
      */
     void Generate();
 

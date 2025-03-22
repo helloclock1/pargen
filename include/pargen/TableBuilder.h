@@ -64,6 +64,9 @@ public:
 private:
     /**
      * @brief Builds the action table.
+     * @throws TableGeneratorError if the provided grammar is ambiguous
+     * (equally, if there is a shift/shift or shift/reduce or reduce/reduce in
+     * the process of building an action table).
      */
     void BuildActionTable();
     /**
