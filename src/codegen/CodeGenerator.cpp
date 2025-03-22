@@ -324,7 +324,7 @@ void CodeGenerator::GenerateParser() {
     }
     out << "class Parser {\n";
     out << "public:\n";
-    out << "    void Parse(const std::vector<Terminal> &stream) {\n";
+    out << "    int Parse(const std::vector<Terminal> &stream) {\n";
     out << "        Clear();\n";
     out << "        for (const Terminal &token : stream | std::views::reverse) "
            "{\n";
@@ -333,6 +333,7 @@ void CodeGenerator::GenerateParser() {
     out << "    \n";
     out << "        Terminal a = seq_.top();\n";
     out << "        bool done = false;\n";
+    out << "        int return_state = 0;\n";
     out << "        while (!done) {\n";
     out << "            size_t s = state_stack_.top();\n";
     out << "            auto entry = action_.at(s);\n";
@@ -385,6 +386,7 @@ void CodeGenerator::GenerateParser() {
            "(a.repr.empty() ? a.name : a.repr) << "
            "\", trying to recover\" << "
            "std::endl;\n";
+    out << "                    ++return_state;\n";
     out << "                    FollowSet follow;\n";
     out << "                    try {\n";
     out << "                        follow = "
@@ -392,7 +394,7 @@ void CodeGenerator::GenerateParser() {
     out << "                    } catch (const std::out_of_range &e) {\n";
     out << "                        std::cerr << \"Error, cannot recover\" << "
            "std::endl;\n";
-    out << "                        exit(1);\n";
+    out << "                        return -return_state;\n";
     out << "                    }\n";
     out << "                    bool recovered = false;\n";
     out << "                    while (!seq_.empty() && !recovered) {\n";
@@ -405,7 +407,7 @@ void CodeGenerator::GenerateParser() {
     out << "                    if (!recovered) {\n";
     out << "                        std::cerr << \"Error, cannot recover\" << "
            "std::endl;\n";
-    out << "                        exit(1);\n";
+    out << "                        return -return_state;\n";
     out << "                    }\n";
     out << "                    if (!seq_.empty()) {\n";
     out << "                        a = seq_.top();\n";
@@ -413,6 +415,7 @@ void CodeGenerator::GenerateParser() {
     out << "                }\n";
     out << "            }\n";
     out << "        }\n";
+    out << "        return return_state;\n";
     out << "    }\n";
     out << "\n";
     out << "    ParseTree GetParseTree() const {\n";
