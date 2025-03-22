@@ -11,6 +11,8 @@
 #include "BNFParser.h"
 #include "CodeGenerator.h"
 #include "Entities.h"
+#include "LexerGenerator.h"
+#include "ParserGenerator.h"
 
 int main(int argc, char **argv) {
     namespace po = boost::program_options;
@@ -60,17 +62,20 @@ int main(int argc, char **argv) {
         std::cerr << "GrammarParserError" << e.what() << std::endl;
         return 2;
     }
+
     Grammar g = gp.Get();
-    ParserGenerator a(g);
+    TableGenerator a(g);
     try {
         a.Generate();
-    } catch (const ParserGeneratorError &e) {
-        std::cerr << "ParserGeneratorError: " << e.what() << std::endl;
+    } catch (const TableGeneratorError &e) {
+        std::cerr << "TableGeneratorError: " << e.what() << std::endl;
         return 3;
     }
+
     ActionTable at = a.GetActionTable();
     GotoTable gt = a.GetGotoTable();
     FollowSets fs = a.GetFollowSets();
+
     try {
         CodeGenerator codegen(
             vm["generate-to"].as<std::string>(), at, gt, fs, g,
@@ -80,6 +85,15 @@ int main(int argc, char **argv) {
     } catch (const CodeGeneratorError &e) {
         std::cerr << "CodeGeneratorError: " << e.what() << std::endl;
         return 4;
+    } catch (const LexerGeneratorError &e) {
+        std::cerr << "LexerGeneratorError: " << e.what() << std::endl;
+        return 5;
+    } catch (const ParserGeneratorError &e) {
+        std::cerr << "ParserGeneratorError: " << e.what() << std::endl;
+        return 6;
+    } catch (const std::exception &e) {
+        std::cerr << "Unknown error: " << e.what() << std::endl;
+        return -1;
     }
     return 0;
 }

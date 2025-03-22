@@ -32,19 +32,19 @@ using FollowSets = std::unordered_map<NonTerminal, std::set<Terminal>>;
 
 std::string QualName(Token token);
 
-class ParserGeneratorError : public std::exception {
+class TableGeneratorError : public std::exception {
 public:
-    explicit ParserGeneratorError(const std::string &msg);
+    explicit TableGeneratorError(const std::string &msg);
     const char *what() const noexcept override;
 
 private:
     std::string msg_;
 };
 
-class ParserGenerator {
+class TableGenerator {
 public:
-    ParserGenerator() = delete;
-    ParserGenerator(const Grammar &g);
+    TableGenerator() = delete;
+    TableGenerator(const Grammar &g);
 
     void Generate();
 

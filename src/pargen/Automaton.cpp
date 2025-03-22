@@ -5,17 +5,17 @@
 
 #include "Entities.h"
 
-ParserGenerator::Item::Item(
+TableGenerator::Item::Item(
     size_t rule_number, size_t dot_pos, Terminal lookahead
 )
     : rule_number_(rule_number), dot_pos_(dot_pos), lookahead_(lookahead) {
 }
 
-bool ParserGenerator::DotAtEnd(const Item &item) const {
+bool TableGenerator::DotAtEnd(const Item &item) const {
     return item.dot_pos_ >= g_[item.rule_number_].prod.size();
 }
 
-std::optional<Token> ParserGenerator::NextToken(const Item &item) const {
+std::optional<Token> TableGenerator::NextToken(const Item &item) const {
     if (!DotAtEnd(item)) {
         return g_[item.rule_number_].prod[item.dot_pos_];
     }
@@ -43,18 +43,18 @@ std::string QualName(Token token) {
     }
 }
 
-ParserGeneratorError::ParserGeneratorError(const std::string &msg) : msg_(msg) {
+TableGeneratorError::TableGeneratorError(const std::string &msg) : msg_(msg) {
 }
 
-const char *ParserGeneratorError::what() const noexcept {
+const char *TableGeneratorError::what() const noexcept {
     return msg_.c_str();
 }
 
-ParserGenerator::ParserGenerator(const Grammar &g) : g_(g) {
+TableGenerator::TableGenerator(const Grammar &g) : g_(g) {
     g_.tokens_.insert(Terminal{"$", "$"});
 }
 
-void ParserGenerator::Generate() {
+void TableGenerator::Generate() {
     ComputeFirst();
     ComputeFollow();
     BuildCanonicalCollection();
@@ -62,19 +62,19 @@ void ParserGenerator::Generate() {
     BuildGotoTable();
 }
 
-ActionTable ParserGenerator::GetActionTable() const {
+ActionTable TableGenerator::GetActionTable() const {
     return action_;
 }
 
-GotoTable ParserGenerator::GetGotoTable() const {
+GotoTable TableGenerator::GetGotoTable() const {
     return goto_;
 }
 
-FollowSets ParserGenerator::GetFollowSets() const {
+FollowSets TableGenerator::GetFollowSets() const {
     return follow_;
 }
 
-void ParserGenerator::BuildCanonicalCollection() {
+void TableGenerator::BuildCanonicalCollection() {
     State initial_state = Closure({Item{0, 0, Terminal{"$", "$"}}});
     states_.insert({0, initial_state});
     std::set<State> c_set = {initial_state};
@@ -105,7 +105,7 @@ void ParserGenerator::BuildCanonicalCollection() {
     }
 }
 
-void ParserGenerator::BuildActionTable() {
+void TableGenerator::BuildActionTable() {
     action_.resize(states_.size());
     for (size_t i = 0; i < states_.size(); ++i) {
         for (const Item &item : states_.left.at(i)) {
@@ -125,7 +125,7 @@ void ParserGenerator::BuildActionTable() {
                         if (action_[i].find(key) != action_[i].end()) {
                             Action existing = action_[i][key];
                             if (existing.type_ == ActionType::REDUCE) {
-                                throw ParserGeneratorError(
+                                throw TableGeneratorError(
                                     "Provided grammar is ambiguous "
                                     "(shift/reduce conflict on token: " +
                                     key + ")"
@@ -133,7 +133,7 @@ void ParserGenerator::BuildActionTable() {
                             }
                             if (existing.type_ == ActionType::SHIFT &&
                                 existing.value_ != new_action.value_) {
-                                throw ParserGeneratorError(
+                                throw TableGeneratorError(
                                     "Provided grammar is ambiguous "
                                     "(shift/shift conflict on token: " +
                                     key + ")"
@@ -149,7 +149,7 @@ void ParserGenerator::BuildActionTable() {
                         if (action_[i].find(key) != action_[i].end()) {
                             Action existing = action_[i][key];
                             if (existing.type_ == ActionType::SHIFT) {
-                                throw ParserGeneratorError(
+                                throw TableGeneratorError(
                                     "Provided grammar is ambiguous "
                                     "(shift/reduce conflict on token: " +
                                     key + ")"
@@ -157,7 +157,7 @@ void ParserGenerator::BuildActionTable() {
                             }
                             if (existing.type_ == ActionType::REDUCE &&
                                 existing.value_ != new_action.value_) {
-                                throw ParserGeneratorError(
+                                throw TableGeneratorError(
                                     "Provided grammar is ambiguous "
                                     "(reduce/reduce conflict on token: " +
                                     key + ")"
@@ -182,7 +182,7 @@ void ParserGenerator::BuildActionTable() {
                     if (existing.type_ == ActionType::SHIFT ||
                         (existing.type_ == ActionType::REDUCE &&
                          existing.value_ != new_action.value_)) {
-                        throw ParserGeneratorError(
+                        throw TableGeneratorError(
                             "Provided grammar is ambiguous (conflict in action "
                             "table on token: " +
                             key + ")"
@@ -195,7 +195,7 @@ void ParserGenerator::BuildActionTable() {
     }
 }
 
-void ParserGenerator::BuildGotoTable() {
+void TableGenerator::BuildGotoTable() {
     for (size_t i = 0; i < states_.size(); ++i) {
         for (const Token &token : g_.tokens_) {
             if (IsTerminal(token)) {
@@ -210,7 +210,7 @@ void ParserGenerator::BuildGotoTable() {
     }
 }
 
-void ParserGenerator::ComputeFirst() {
+void TableGenerator::ComputeFirst() {
     for (const Token &token : g_.tokens_) {
         if (IsTerminal(token)) {
             first_[token] = {std::get<Terminal>(token)};
@@ -251,7 +251,7 @@ void ParserGenerator::ComputeFirst() {
     }
 }
 
-std::set<Terminal> ParserGenerator::FirstForSequence(
+std::set<Terminal> TableGenerator::FirstForSequence(
     const std::vector<Token> &seq
 ) {
     if (seq.empty()) {
@@ -276,7 +276,7 @@ std::set<Terminal> ParserGenerator::FirstForSequence(
     return result;
 }
 
-void ParserGenerator::ComputeFollow() {
+void TableGenerator::ComputeFollow() {
     follow_[g_[0].lhs] = {Terminal{"$", "$"}};
     bool changed = true;
     while (changed) {
@@ -313,7 +313,7 @@ void ParserGenerator::ComputeFollow() {
     }
 }
 
-std::set<ParserGenerator::Item> ParserGenerator::Closure(
+std::set<TableGenerator::Item> TableGenerator::Closure(
     const std::set<Item> &items
 ) {
     std::set<Item> closure = items;
@@ -355,7 +355,7 @@ std::set<ParserGenerator::Item> ParserGenerator::Closure(
     return closure;
 }
 
-ParserGenerator::State ParserGenerator::Goto(State state, Token next) {
+TableGenerator::State TableGenerator::Goto(State state, Token next) {
     State new_state;
     for (const Item &item : state) {
         std::optional<Token> next_token = NextToken(item);

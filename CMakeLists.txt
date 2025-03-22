@@ -13,6 +13,8 @@ add_library(pargen_lib
 )
 add_library(codegen_lib
     src/codegen/CodeGenerator.cpp
+    src/codegen/LexerGenerator.cpp
+    src/codegen/ParserGenerator.cpp
 )
 
 target_include_directories(pargen_lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include/pargen)
