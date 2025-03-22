@@ -43,6 +43,7 @@ private:
 };
 
 /**
+ * @class GrammarParser
  * @brief A class for parsing a user-specified grammar in BNF.
  * @details This class provides a mechanism for parsing a user-specified grammar
  * in BNF. It reads the grammar from an input stream and stores the parsed

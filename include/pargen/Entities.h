@@ -15,6 +15,7 @@
 #include <vector>
 
 /**
+ * @struct Terminal
  * @brief Represents a terminal symbol in a grammar.
  * @details A terminal symbol is a literal string that can appear in a sentence
  * in the user-given grammar.
@@ -48,6 +49,7 @@ struct Terminal {
 };
 
 /**
+ * @struct NonTerminal
  * @brief Represents a non-terminal symbol in a grammar.
  * @details A non-terminal symbol is a symbol that can be replaced by a sequence
  * of non-terminals and/or terminals in the user-given grammar.
@@ -115,6 +117,7 @@ bool operator<(const Token &a, const Token &b);
 using Production = std::vector<Token>;
 
 /**
+ * @struct Rule
  * @brief Represents an entire grammar rule.
  */
 struct Rule {
@@ -129,6 +132,7 @@ struct Rule {
 };
 
 /**
+ * @struct Grammar
  * @brief Represents the parsed user-defined grammar.
  */
 struct Grammar {
@@ -182,6 +186,7 @@ using FollowSets = std::unordered_map<NonTerminal, std::set<Terminal>>;
 enum class ActionType { SHIFT, REDUCE, ACCEPT, ERROR };
 
 /**
+ * @struct Action
  * @brief Represents an action in the action table.
  */
 struct Action {
