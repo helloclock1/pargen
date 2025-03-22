@@ -10,6 +10,9 @@ add_library(pargen_lib
     src/pargen/Automaton.cpp
     src/pargen/BNFParser.cpp
     src/pargen/Entities.cpp
+    src/pargen/GrammarAnalyzer.cpp
+    src/pargen/Helpers.cpp
+    src/pargen/TableBuilder.cpp
 )
 add_library(codegen_lib
     src/codegen/CodeGenerator.cpp

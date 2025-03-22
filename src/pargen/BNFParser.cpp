@@ -1,6 +1,7 @@
 #include "BNFParser.h"
 
 #include "Entities.h"
+#include "Helpers.h"
 
 GrammarParserError::GrammarParserError(const std::string &msg, size_t line)
     : msg_(ConstructMessage(msg, line)) {
@@ -34,6 +35,7 @@ void GrammarParser::Parse() {
     NonTerminal first_rule = g_.rules_[0].lhs;
     g_.rules_.insert(g_.rules_.cbegin(), Rule{NonTerminal{"S'"}, {first_rule}});
     g_.tokens_.insert(first_rule);
+    g_.tokens_.insert(T_EOF);
 }
 
 const Grammar &GrammarParser::Get() const {

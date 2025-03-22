@@ -3,6 +3,8 @@
 #include <fstream>
 #include <iostream>
 
+#include "Helpers.h"
+
 ParserGeneratorError::ParserGeneratorError(const std::string &msg) : msg_(msg) {
 }
 

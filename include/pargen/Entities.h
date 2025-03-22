@@ -1,7 +1,9 @@
 #pragma once
 
+#include <map>
 #include <set>
 #include <string>
+#include <unordered_map>
 #include <variant>
 #include <vector>
 
@@ -44,9 +46,9 @@ template <>
 struct hash<Token> {
     size_t operator()(const Token &t) const {
         if (std::holds_alternative<Terminal>(t)) {
-            return hash()(std::get<Terminal>(t));
+            return hash<Terminal>()(std::get<Terminal>(t));
         } else {
-            return hash()(std::get<NonTerminal>(t));
+            return hash<NonTerminal>()(std::get<NonTerminal>(t));
         }
     }
 };
@@ -74,3 +76,17 @@ struct Grammar {
         return rules_[i];
     }
 };
+
+using FirstSets = std::map<Token, std::set<Terminal>>;
+using FollowSets = std::unordered_map<NonTerminal, std::set<Terminal>>;
+
+enum class ActionType { SHIFT, REDUCE, ACCEPT, ERROR };
+
+struct Action {
+    ActionType type_ = ActionType::ERROR;
+    size_t value_ = 0;
+};
+
+using ActionTable = std::vector<std::unordered_map<std::string, Action>>;
+using GotoTable =
+    std::unordered_map<size_t, std::unordered_map<NonTerminal, size_t>>;

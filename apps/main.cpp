@@ -7,12 +7,12 @@
 #include <fstream>
 #include <string>
 
-#include "Automaton.h"
 #include "BNFParser.h"
 #include "CodeGenerator.h"
 #include "Entities.h"
 #include "LexerGenerator.h"
 #include "ParserGenerator.h"
+#include "TableBuilder.h"
 
 int main(int argc, char **argv) {
     namespace po = boost::program_options;
@@ -64,17 +64,19 @@ int main(int argc, char **argv) {
     }
 
     Grammar g = gp.Get();
-    TableGenerator a(g);
+
+    GrammarAnalyzer ga(g);
+    ParserTables tables(g, ga);
     try {
-        a.Generate();
-    } catch (const TableGeneratorError &e) {
+        tables.Generate();
+    } catch (const std::exception &e) {
         std::cerr << "TableGeneratorError: " << e.what() << std::endl;
         return 3;
     }
 
-    ActionTable at = a.GetActionTable();
-    GotoTable gt = a.GetGotoTable();
-    FollowSets fs = a.GetFollowSets();
+    ActionTable at = tables.GetActionTable();
+    GotoTable gt = tables.GetGotoTable();
+    FollowSets fs = ga.GetFollow();
 
     try {
         CodeGenerator codegen(

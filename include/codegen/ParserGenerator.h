@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Automaton.h"
 #include "Entities.h"
 
 class ParserGeneratorError : public std::exception {

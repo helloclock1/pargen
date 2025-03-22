@@ -3,6 +3,8 @@
 #include <filesystem>
 #include <fstream>
 
+#include "Helpers.h"
+
 LexerGeneratorError::LexerGeneratorError(const std::string &msg) : msg_(msg) {
 }
 
@@ -48,7 +50,7 @@ void LexerGenerator::Generate() {
     for (const Token &token : g_.tokens_) {
         if (std::holds_alternative<Terminal>(token)) {
             Terminal t = std::get<Terminal>(token);
-            if (t.name_.empty()) {
+            if (t == T_EOF || t.name_.empty()) {
                 continue;
             }
             if (t.repr_.empty()) {
@@ -81,7 +83,8 @@ void LexerGenerator::Generate() {
 
     std::string build_lexer_command = "flex --outfile=" + folder_ +
                                       "/Lexer.cpp " + folder_ +
-                                      "/Lexer.l > /dev/null 2>&1";
+                                      //   "/Lexer.l > /dev/null 2>&1";
+                                      "/Lexer.l";
     int result = std::system(build_lexer_command.c_str());
     if (result != 0) {
         throw LexerGeneratorError(

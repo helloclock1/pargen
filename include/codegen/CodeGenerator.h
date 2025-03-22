@@ -1,7 +1,7 @@
 #include <cstdlib>
 #include <cstring>
 
-#include "Automaton.h"
+#include "Entities.h"
 
 class CodeGeneratorError : public std::exception {
 public:
