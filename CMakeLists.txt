@@ -37,7 +37,9 @@ target_include_directories(codegen_lib PUBLIC
 )
 
 add_executable(gen apps/main.cpp)
-add_executable(tests test/test_bnfparser.cpp)
+add_executable(tests
+    test/TestBNFParser.cpp
+)
 
 target_link_libraries(gen PRIVATE pargen_lib codegen_lib Boost::program_options)
 target_link_libraries(tests PRIVATE pargen_lib codegen_lib Catch2::Catch2WithMain)
