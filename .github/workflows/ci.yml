@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  push:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Dependencies
+        run: sudo apt update && sudo apt install -y cmake ninja-build g++ clang
+
+      - name: Configure CMake
+        run: cmake -B build -DCMAKE_CXX_COMPILER=clang++
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Run tests
+        working-directory: build
+        run: ctest --verbose
