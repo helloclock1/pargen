@@ -38,7 +38,9 @@ target_include_directories(codegen_lib PUBLIC
 
 add_executable(gen apps/main.cpp)
 add_executable(tests
+    test/TestHelpers.cpp
     test/TestBNFParser.cpp
+    test/TestGrammarAnalyzer.cpp
 )
 
 target_link_libraries(gen PRIVATE pargen_lib codegen_lib Boost::program_options)
