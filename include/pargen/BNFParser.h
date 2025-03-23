@@ -146,6 +146,13 @@ private:
      */
     void ParseIgnore();
 
+    /**
+     * @brief Verifies the grammar.
+     * @details Currently, this function checks for undefined references to
+     * non-terminals.
+     */
+    void Verify();
+
     std::unique_ptr<std::istream> in_;
     size_t line_ = 0;
     Grammar g_;

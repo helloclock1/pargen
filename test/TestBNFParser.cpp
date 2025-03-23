@@ -167,7 +167,6 @@ TEST_CASE(
     }
 }
 
-// WARNING(helloclock): this test doesn't work yet
 TEST_CASE(
     "GrammarParser throws on undefined non-terminals", "[BNFParserErrors]"
 ) {
@@ -176,6 +175,8 @@ TEST_CASE(
     )";
     GrammarParser gp(MakeStream(input));
     REQUIRE_THROWS_WITH(
-        gp.Parse(), Catch::Matchers::ContainsSubstring("Unknown token")
+        gp.Parse(), Catch::Matchers::ContainsSubstring(
+                        "Encountered an undefined non-terminal"
+                    )
     );
 }

@@ -29,9 +29,7 @@ void GrammarParser::Parse() {
         ParseLine();
         GetChar();
     }
-    if (g_.rules_.empty()) {
-        throw GrammarParserError("Empty grammar", line_);
-    }
+    Verify();
     NonTerminal first_rule = g_.rules_[0].lhs;
     g_.rules_.insert(g_.rules_.cbegin(), Rule{NonTerminal{"S'"}, {first_rule}});
     g_.tokens_.insert(first_rule);
@@ -80,6 +78,9 @@ void GrammarParser::ParseLine() {
     SkipWS();
     GetChar('=');
     SkipWS();
+    if (PeekAt('\n') || PeekAt(EOF)) {
+        throw GrammarParserError("Empty production", line_);
+    }
     size_t rule_number = 1;
     if (std::holds_alternative<Terminal>(lhs)) {
         Terminal t = std::get<Terminal>(lhs);
@@ -205,7 +206,7 @@ Terminal GrammarParser::ParseQuoteTerminal() {
     while (!(PeekAt(init) || PeekAt('\n') || PeekAt(EOF))) {
         lexeme += GetChar();
     }
-    if (!GetChar(init)) {
+    if (GetChar() != init) {
         throw GrammarParserError("Unterminated quote terminal", line_);
     }
     return Terminal{lexeme};
@@ -225,4 +226,34 @@ void GrammarParser::ParseIgnore() {
         regex += GetChar();
     }
     g_.ignored_.push_back(regex);
+}
+
+void GrammarParser::Verify() {
+    if (g_.rules_.empty()) {
+        throw GrammarParserError("Empty grammar", line_);
+    }
+    line_ = 1;
+    for (size_t i = 0; i < g_.rules_.size(); ++i) {
+        const Rule &rule = g_.rules_[i];
+        for (const Token &token : rule.prod) {
+            if (IsTerminal(token)) {
+                continue;
+            }
+            bool found = false;
+            for (const Rule &other : g_.rules_) {
+                if (std::get<NonTerminal>(token) == other.lhs) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                throw GrammarParserError(
+                    "Encountered an undefined non-terminal " +
+                        std::get<NonTerminal>(token).name_,
+                    line_
+                );
+            }
+        }
+        ++line_;
+    }
 }
