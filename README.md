@@ -47,20 +47,20 @@ ctest    # эквивалентно
 
 Каждая строка в файле описывает либо терминал, заданный регулярным выражением, либо набор игнорируемых символов (`IGNORE = \s+`), либо ненулевое количество выводов. Для набора выводов используется следующий синтаксис:
 
-$$
-\mathrm{<NonTerminal>} = \mathrm{Token}_1^1 \dots \mathrm{Token}_{k_1}^1 | \mathrm{Token}_1^2 \dots \mathrm{Token}_{k_2}^2 | \dots | \mathrm{Token}_1^n \dots \mathrm{Token}_{k_n}^n,
-$$
+```math
+<\mathrm{NonTerminal}>\ = \mathrm{Token}_1^1 \dots \mathrm{Token}_{k_1}^1 | \mathrm{Token}_1^2 \dots \mathrm{Token}_{k_2}^2 | \dots | \mathrm{Token}_1^n \dots \mathrm{Token}_{k_n}^n,
+```
 
 где вместо $\mathrm{Token_i^j}$ может быть терминал, нетерминал или пустая строка (записываемая как `EPSILON`). Пустая строка не может содержаться в выводе, который будет непустым при удалении пустой строки из вывода. Записанный выше вывод может быть записан в более развёрнутом виде:
 
-$$
+```math
 \begin{align*}
-&\mathrm{<NonTerminal>} = \mathrm{Token}_1^1 \dots \mathrm{Token}_{k_1}^1\\
-&\mathrm{<NonTerminal>} = \mathrm{Token}_1^2 \dots \mathrm{Token}_{k_2}^2 \\
+&<\mathrm{NonTerminal}>\ = \mathrm{Token}_1^1 \dots \mathrm{Token}_{k_1}^1\\
+&<\mathrm{NonTerminal}>\ = \mathrm{Token}_1^2 \dots \mathrm{Token}_{k_2}^2 \\
 &\vdots \\
-&\mathrm{<NonTerminal>} = \mathrm{Token}_1^n \dots \mathrm{Token}_{k_n}^n
+&<\mathrm{NonTerminal}>\ = \mathrm{Token}_1^n \dots \mathrm{Token}_{k_n}^n
 \end{align*}
-$$
+```
 
 Примеры грамматик в нужном формате могут быть найдены в директории `example_grammars/`.
 
