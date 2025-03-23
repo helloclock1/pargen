@@ -4,7 +4,17 @@ project(ParserGenerator LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+include(FetchContent)
+
 find_package(Boost REQUIRED COMPONENTS program_options)
+FetchContent_Declare(
+    Catch2
+    GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+    GIT_TAG v3.8.0
+)
+FetchContent_MakeAvailable(Catch2)
+
+enable_testing()
 
 add_library(pargen_lib
     src/pargen/Automaton.cpp
@@ -27,7 +37,21 @@ target_include_directories(codegen_lib PUBLIC
 )
 
 add_executable(gen apps/main.cpp)
+add_executable(tests
+    test/TestHelpers.cpp
+    test/TestBNFParser.cpp
+    test/TestGrammarAnalyzer.cpp
+    test/TestAutomaton.cpp
+    test/TestTableBuilder.cpp
+)
 
 target_link_libraries(gen PRIVATE pargen_lib codegen_lib Boost::program_options)
+target_link_libraries(tests PRIVATE pargen_lib codegen_lib Catch2::Catch2WithMain)
 
 target_compile_options(gen PRIVATE -Werror -Wall -Wextra -Wpedantic -g)
+
+# add_test(NAME GeneratorTests COMMAND tests)
+
+include(CTest)
+include(Catch)
+catch_discover_tests(tests)

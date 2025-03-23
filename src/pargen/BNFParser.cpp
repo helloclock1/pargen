@@ -73,8 +73,7 @@ void GrammarParser::SkipWS() {
 }
 
 void GrammarParser::ParseLine() {
-    if (PeekAt('\n')) {
-        GetChar();
+    if (PeekAt('\n') || PeekAt(EOF)) {
         return;
     }
     Token lhs = ParseToken();
