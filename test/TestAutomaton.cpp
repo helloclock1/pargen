@@ -1,6 +1,7 @@
 #include <random>
 
 #include "BNFParser.h"
+#include "Entities.h"
 #define CATCH_CONFIG_MAIN
 
 #include <catch2/catch_test_macros.hpp>
@@ -110,4 +111,37 @@ TEST_CASE("Automaton correctly computes closure: stress", "[Automaton]") {
             REQUIRE(valid_item);
         }
     }
+}
+
+TEST_CASE("Automaton correctly computes goto", "[Automaton]") {
+    std::string input = R"(
+        int = [0-9]+
+        <S> = <T> <E>
+        <E> = '+' <T> <E> | EPSILON
+        <T> = int
+    )";
+
+    GrammarParser gp(MakeStream(input));
+    REQUIRE_NOTHROW(gp.Parse());
+
+    Grammar g = gp.Get();
+    GrammarAnalyzer ga(g);
+    ga.ComputeFirst();
+    ga.ComputeFollow();
+
+    FirstSets first = ga.GetFirst();
+    FollowSets follow = ga.GetFollow();
+
+    Automaton a(g, ga);
+
+    REQUIRE(
+        a.Goto(
+             Automaton::State{{Automaton::Item{0, 0, T_EOF}}}, NonTerminal{"S"}
+        )
+            .size() == 1
+    );  // all input processed
+    auto goto_state = a.Goto(
+        Automaton::State{{Automaton::Item{4, 1, T_EOF}}}, Terminal{"int"}
+    );
+    REQUIRE(goto_state.size() == 0);  // nonexistent transition
 }
