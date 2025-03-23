@@ -168,7 +168,7 @@ TEST_CASE(
 }
 
 // WARNING(helloclock): this test doesn't work yet
-/*TEST_CASE(
+TEST_CASE(
     "GrammarParser throws on undefined non-terminals", "[BNFParserErrors]"
 ) {
     std::string input = R"(
@@ -178,4 +178,4 @@ TEST_CASE(
     REQUIRE_THROWS_WITH(
         gp.Parse(), Catch::Matchers::ContainsSubstring("Unknown token")
     );
-}*/
+}
