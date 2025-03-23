@@ -1,0 +1,11 @@
+id = [a-zA-Z_][a-zA-Z0-9_]*
+num = [0-9]+
+string = \"[^\"]*\"
+
+<S> = <query>
+<query> = 'SELECT' <columns> 'FROM' id <where_clause>
+<columns> = '*' | id <column_list>
+<column_list> = ',' id <column_list> | EPSILON
+<where_clause> = 'WHERE' <condition> | EPSILON
+<condition> = id '=' <value>
+<value> = num | string
