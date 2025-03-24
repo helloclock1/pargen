@@ -83,7 +83,7 @@ public:
      * @return The closure of the given set of items.
      * @note The closure doesn't have to be a state of the automaton.
      */
-    State Closure(const State &items) const;
+    std::set<Item> Closure(const std::set<Item> &items) const;
     /**
      * @brief Computes the next state of the automaton based on the current
      * state and the next token.
@@ -91,7 +91,7 @@ public:
      * @param next The next token.
      * @return The next state of the automaton.
      */
-    State Goto(const State &state, Token next) const;
+    State Goto(const State &state, const Token &next) const;
 
     /**
      * @brief Returns the states of the automaton.

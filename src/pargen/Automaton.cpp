@@ -12,7 +12,9 @@ Automaton::Automaton(const Grammar &g, const GrammarAnalyzer &ga)
     BuildCanonicalCollection();
 }
 
-Automaton::State Automaton::Closure(const State &items) const {
+std::set<Automaton::Item> Automaton::Closure(
+    const std::set<Automaton::Item> &items
+) const {
     std::set<Item> closure = items;
     bool changed = true;
     while (changed) {
@@ -53,8 +55,9 @@ Automaton::State Automaton::Closure(const State &items) const {
     return closure;
 }
 
-Automaton::State Automaton::Goto(const Automaton::State &state, Token next)
-    const {
+Automaton::State Automaton::Goto(
+    const Automaton::State &state, const Token &next
+) const {
     Automaton::State new_state;
     for (const Automaton::Item &item : state) {
         std::optional<Token> next_token = NextToken(item);

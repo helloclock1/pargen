@@ -17,6 +17,7 @@ void GrammarAnalyzer::ComputeFirst() {
         }
     }
     first_[EPSILON] = {EPSILON};
+
     bool changed = true;
     while (changed) {
         changed = false;
@@ -30,6 +31,7 @@ void GrammarAnalyzer::ComputeFirst() {
                 if (eps_in_token_first) {
                     token_first.erase(eps_location);
                 }
+
                 first_[rule.lhs].insert(token_first.begin(), token_first.end());
                 if (first_[rule.lhs].size() != prev_size) {
                     changed = true;
@@ -59,7 +61,7 @@ std::set<Terminal> GrammarAnalyzer::FirstForSequence(
     bool eps_in_prev = true;
     size_t i = 0;
     while (eps_in_prev && i < seq.size()) {
-        std::set<Terminal> token_first;  // = first_.at(seq[i]);
+        std::set<Terminal> token_first;
         if (first_.contains(seq[i])) {
             token_first = first_.at(seq[i]);
         } else {
