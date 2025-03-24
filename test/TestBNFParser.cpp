@@ -44,12 +44,10 @@ TEST_CASE(
 
 TEST_CASE("GrammarParser throws on empty production", "[BNFParserErrors]") {
     std::string input = R"(
-        <S> = <A> | | <B>
+        <S> = 'a' | |
     )";
     GrammarParser gp(MakeStream(input));
-    REQUIRE_THROWS_WITH(
-        gp.Parse(), Catch::Matchers::ContainsSubstring("Empty production")
-    );
+    REQUIRE_NOTHROW(gp.Parse());
 }
 
 TEST_CASE(

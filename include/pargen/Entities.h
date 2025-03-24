@@ -33,6 +33,10 @@ struct Terminal {
      * contains nothing if it is a quote terminal.
      */
     std::string repr_ = "";
+
+    bool IsQuote() const;
+    bool IsRegex() const;
+
     /**
      * @brief Compares two terminals for equality.
      * @details If exactly one terminal has a non-empty `repr_` field, returns

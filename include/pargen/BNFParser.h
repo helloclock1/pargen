@@ -12,7 +12,6 @@
 #include <istream>
 #include <memory>
 #include <string>
-#include <vector>
 
 #include "Entities.h"
 
@@ -74,6 +73,12 @@ public:
 
 private:
     /**
+     * @brief Helper function for throwing an error with line number.
+     * @param msg The error message.
+     * @throws GrammarParserError with the designated message.
+     */
+    void ThrowError(const std::string &msg);
+    /**
      * @brief Helper function for reading a character from stream.
      * @return The character read from the stream (or EOF if `in_` is peeking at
      * EOF).
@@ -120,7 +125,7 @@ private:
      * (e.g., undefined regex terminal).
      * @todo Change return type to `Production`
      */
-    std::vector<Token> ParseRule();
+    Production ParseProduction();
     /**
      * @brief Parses a token from the input stream.
      * @return The parsed token.
@@ -152,6 +157,14 @@ private:
      * non-terminals.
      */
     void Verify();
+
+    /**
+     * @brief Augments the grammar.
+     * @details Process of augmenting the grammar involves adding a new rule `S'
+     * -> S` (where `S` is the start symbol of the user-defined grammar) and
+     * adding the new start symbol to the set of tokens.
+     */
+    void Augment();
 
     std::unique_ptr<std::istream> in_;
     size_t line_ = 0;
