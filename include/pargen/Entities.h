@@ -34,7 +34,15 @@ struct Terminal {
      */
     std::string repr_ = "";
 
+    /**
+     * @brief Checks whether the terminal is a quote terminal.
+     * @return `true` if the terminal is a quote terminal, `false` otherwise.
+     */
     bool IsQuote() const;
+    /**
+     * @brief Checks whether the terminal is a regex terminal.
+     * @return `true` if the terminal is a regex terminal, `false` otherwise.
+     */
     bool IsRegex() const;
 
     /**
