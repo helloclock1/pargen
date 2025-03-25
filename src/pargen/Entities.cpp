@@ -1,5 +1,7 @@
 #include "Entities.h"
 
+#include "Helpers.h"
+
 bool Terminal::IsQuote() const {
     return repr_.empty();
 }
@@ -34,21 +36,16 @@ bool NonTerminal::operator!=(const NonTerminal &other) const {
     return name_ != other.name_;
 }
 
-// TODO(helloclock): rewrite to visitor pattern?
 bool operator<(const Token &a, const Token &b) {
-    if (std::holds_alternative<Terminal>(a) &&
-        std::holds_alternative<Terminal>(b)) {
+    if (IsTerminal(a) && IsTerminal(b)) {
         Terminal at = std::get<Terminal>(a);
         Terminal bt = std::get<Terminal>(b);
         return std::tie(at.name_, at.repr_) < std::tie(bt.name_, bt.repr_);
-    } else if (std::holds_alternative<NonTerminal>(a) &&
-               std::holds_alternative<NonTerminal>(b)) {
+    } else if (IsNonTerminal(a) && IsNonTerminal(b)) {
         return std::get<NonTerminal>(a).name_ < std::get<NonTerminal>(b).name_;
-    } else if (std::holds_alternative<Terminal>(a) &&
-               std::holds_alternative<NonTerminal>(b)) {
+    } else if (IsTerminal(a) && IsNonTerminal(b)) {
         return true;
-    } else if (std::holds_alternative<NonTerminal>(a) &&
-               std::holds_alternative<Terminal>(b)) {
+    } else if (IsNonTerminal(a) && IsTerminal(b)) {
         return false;
     }
     return true;
