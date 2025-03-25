@@ -33,6 +33,7 @@ void LexerGenerator::Generate() {
     out << "extern \"C\" int yylex();\n";
     out << "\n";
     out << "std::vector<p::Terminal> Lex(const char *filename) {\n";
+    out << "    tokens.clear();\n";
     out << "    FILE *file = fopen(filename, \"r\");\n";
     out << "    if (!file) {\n";
     out << "        std::cerr << \"Error: cannot open file `\" << filename << "
@@ -48,12 +49,12 @@ void LexerGenerator::Generate() {
     out << "%%\n";
     out << "\n";
     for (const Token &token : g_.tokens_) {
-        if (std::holds_alternative<Terminal>(token)) {
+        if (IsTerminal(token)) {
             Terminal t = std::get<Terminal>(token);
             if (t == T_EOF || t.name_.empty()) {
                 continue;
             }
-            if (t.repr_.empty()) {
+            if (t.IsQuote()) {
                 out << "\"";
                 for (const char &c : t.name_) {
                     // user may pass something like '\n' as a token. this should
@@ -83,8 +84,7 @@ void LexerGenerator::Generate() {
 
     std::string build_lexer_command = "flex --outfile=" + folder_ +
                                       "/Lexer.cpp " + folder_ +
-                                      //   "/Lexer.l > /dev/null 2>&1";
-                                      "/Lexer.l";
+                                      "/Lexer.l > /dev/null 2>&1";
     int result = std::system(build_lexer_command.c_str());
     if (result != 0) {
         throw LexerGeneratorError(
