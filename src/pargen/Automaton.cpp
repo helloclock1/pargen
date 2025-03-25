@@ -71,7 +71,7 @@ Automaton::State Automaton::Goto(
 }
 
 void Automaton::BuildCanonicalCollection() {
-    State initial_state = Closure({Item{0, 0, Terminal{"$", "$"}}});
+    State initial_state = Closure({Item{0, 0, T_EOF}});
     states_.insert({0, initial_state});
     std::set<State> c_set = {initial_state};
     bool changed = true;
