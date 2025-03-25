@@ -57,6 +57,16 @@ public:
             return std::tie(lhs.rule_number_, lhs.dot_pos_, lhs.lookahead_) <
                    std::tie(rhs.rule_number_, rhs.dot_pos_, rhs.lookahead_);
         }
+        bool operator==(const Item &other) const;
+    };
+
+    struct ItemSetKey {
+        std::vector<Item> items_;
+        bool operator==(const ItemSetKey &other) const;
+    };
+
+    struct ItemSetKeyHash {
+        size_t operator()(const ItemSetKey &key) const;
     };
 
     /**
@@ -78,12 +88,14 @@ public:
     Automaton(const Grammar &g, const GrammarAnalyzer &ga);
 
     /**
-     * @brief Computes a closure of an arbitrary set of items.
+     * @brief Based on whether the current closure has already been computed,
+     * the function either computes and caches the closure or returns the cached
+     * one.
      * @param items The set of items to compute the closure of.
      * @return The closure of the given set of items.
      * @note The closure doesn't have to be a state of the automaton.
      */
-    std::set<Item> Closure(const std::set<Item> &items) const;
+    std::set<Item> Closure(const std::set<Item> &items);
     /**
      * @brief Computes the next state of the automaton based on the current
      * state and the next token.
@@ -91,7 +103,7 @@ public:
      * @param next The next token.
      * @return The next state of the automaton.
      */
-    State Goto(const State &state, const Token &next) const;
+    State Goto(const State &state, const Token &next);
 
     /**
      * @brief Returns the states of the automaton.
@@ -116,6 +128,14 @@ private:
      */
     bool DotAtEnd(const Item &item) const;
 
+    ItemSetKey GetKey(const std::set<Item> &items) const;
+
+    /**
+     * @brief Computes the closure if it isn't cached.
+     * @param items The set of items to compute the closure of.
+     * @return The closure of the given set of items.
+     */
+    std::set<Item> InternalClosure(const std::set<Item> &items) const;
     /**
      * @brief Computes the canonical collection (all possible states of the
      * automaton) for the grammar.
@@ -124,6 +144,9 @@ private:
 
     const Grammar &g_;
     GrammarAnalyzer ga_;
+
+    std::unordered_map<ItemSetKey, std::set<Item>, ItemSetKeyHash>
+        closure_cache_;
 
     StateMap states_;
 };
