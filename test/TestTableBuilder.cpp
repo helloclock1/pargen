@@ -37,7 +37,7 @@ TEST_CASE(
 TEST_CASE("TableBuilder detects ambiguous grammar", "[TableBuilder]") {
     std::string input = R"(
         a = 'a'
-        <S> = <A> <B>
+        <S> = <A> | <B>
         <A> = a | EPSILON
         <B> = a | EPSILON
     )";

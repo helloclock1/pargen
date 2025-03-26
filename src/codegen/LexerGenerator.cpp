@@ -81,7 +81,7 @@ void LexerGenerator::Generate() {
         if (t == T_EOF || t.name_.empty()) {
             continue;
         }
-        if (t.IsRegex()) {
+        if (t.IsRegex() && t.repr_ != " ") {
             out << t.repr_ << "\t"
                 << "{ tokens.push_back(p::Terminal{\"" << t.name_ << "\", "
                 << "yytext}); }\n";
