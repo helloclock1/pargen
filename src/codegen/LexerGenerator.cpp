@@ -49,29 +49,42 @@ void LexerGenerator::Generate() {
     out << "%%\n";
     out << "\n";
     for (const Token &token : g_.tokens_) {
-        if (IsTerminal(token)) {
-            Terminal t = std::get<Terminal>(token);
-            if (t == T_EOF || t.name_.empty()) {
-                continue;
-            }
-            if (t.IsQuote()) {
-                out << "\"";
-                for (const char &c : t.name_) {
-                    // user may pass something like '\n' as a token. this should
-                    // be taken exactly as if it was embraced in double quotes
-                    // without modifying (so '\n' is considered a newline, not a
-                    // sequence of backslash and `n`)
-                    if (c == '"') {
-                        out << "\\";
-                    }
-                    out << c;
+        // if (IsTerminal(token)) {
+        if (IsNonTerminal(token)) {
+            continue;
+        }
+        Terminal t = std::get<Terminal>(token);
+        if (t == T_EOF || t.name_.empty()) {
+            continue;
+        }
+        if (t.IsQuote()) {
+            out << "\"";
+            for (const char &c : t.name_) {
+                // user may pass something like '\n' as a token. this should
+                // be taken exactly as if it was embraced in double quotes
+                // without modifying (so '\n' is considered a newline, not a
+                // sequence of backslash and `n`)
+                if (c == '"') {
+                    out << "\\";
                 }
-                out << "\"" << "\t"
-                    << "{ tokens.push_back(p::Terminal{yytext}); }\n";
-            } else if (t.repr_ != " ") {
-                out << t.repr_ << "\t" << "{ tokens.push_back(p::Terminal{\""
-                    << t.name_ << "\", yytext}); }\n";
+                out << c;
             }
+            out << "\"" << "\t"
+                << "{ tokens.push_back(p::Terminal{yytext}); }\n";
+        }
+    }
+    for (const Token &token : g_.tokens_) {
+        if (IsNonTerminal(token)) {
+            continue;
+        }
+        Terminal t = std::get<Terminal>(token);
+        if (t == T_EOF || t.name_.empty()) {
+            continue;
+        }
+        if (t.IsRegex()) {
+            out << t.repr_ << "\t"
+                << "{ tokens.push_back(p::Terminal{\"" << t.name_ << "\", "
+                << "yytext}); }\n";
         }
     }
     for (const std::string &regex : g_.ignored_) {
