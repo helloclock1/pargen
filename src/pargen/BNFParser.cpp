@@ -167,7 +167,8 @@ Production GrammarParser::ParseProduction() {
             }
         }
         production.push_back(token);
-        if (!is_eps) {
+        if (!is_eps &&
+            !(IsTerminal(token) && std::get<Terminal>(token).IsRegex())) {
             g_.tokens_.insert(token);
         }
         SkipWS();
