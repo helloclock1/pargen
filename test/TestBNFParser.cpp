@@ -22,6 +22,19 @@ TEST_CASE("Correct parsing of a simple grammar", "[BNFParser]") {
     );  // 7 grammar rules + 1 augmented rule S' = S
 }
 
+TEST_CASE("IGNORE directive gets parsed correctly", "[BNFParser]") {
+    std::string input = R"(
+        IGNORE = \t+
+        <S> = <A>
+        IGNORE = \s+
+        <A> = 'a'
+    )";
+    GrammarParser gp(MakeStream(input));
+    REQUIRE_NOTHROW(gp.Parse());
+    Grammar g = gp.Get();
+    REQUIRE(g.ignored_ == std::vector<std::string>({"\\t+", "\\s+"}));
+}
+
 TEST_CASE("GrammarParser throws on empty grammar", "[BNFParserErrors]") {
     std::string input = R"()";
     GrammarParser gp(MakeStream(input));
@@ -96,7 +109,7 @@ TEST_CASE(
 
     SECTION("Stuff after empty production") {
         std::string input = R"(
-            <S> = <A> | <C> EPSILON EPSILON | <B>
+            <S> = <A> | EPSILON EPSILON <C> | <B>
         )";
         GrammarParser gp(MakeStream(input));
         REQUIRE_THROWS_WITH(
