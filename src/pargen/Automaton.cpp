@@ -2,7 +2,6 @@
 
 #include <boost/container_hash/hash_fwd.hpp>
 #include <cstddef>
-#include <iostream>
 
 #include "GrammarAnalyzer.h"
 #include "Helpers.h"
