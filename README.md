@@ -16,25 +16,58 @@
 ```bash
 git clone https://github.com/helloclock1/cp1-parser-generator.git
 cd cp1-parser-generator
-mkdir build
-cd build
-cmake ..
+cmake -B build [FLAGS]
+cmake --build build
 ```
 
 ### Сборка и запуск генератора парсеров
 
 ```bash
-make gen
 ./gen <input> [options]
 ```
 
 ### Сборка и запуск тестов
 
 ```bash
-make tests
 ./tests
 ctest    # эквивалентно
 ```
+
+### Запуск проверки покрытия кода
+
+Добавьте флаг `-DENABLE_COVERAGE=ON` при сборке. После:
+
+```bash
+cd build/
+ctest
+```
+
+#### При компиляции с использованием компилятора `g++`
+
+```bash
+gcovr --root .. --html --html-details -o coverage.html
+```
+
+#### При компиляции с использованием компилятора `clang++`
+
+```bash
+llvm-profdata merge -sparse FILENAME.profraw -o coverage.profdata  # в зависимости от переменных среды, имя .profraw-файла может отличаться
+```
+
+Для генерации отчёта в формате HTML:
+
+```bash
+llvm-cov show ./tests -instr-profile=coverage.profdata -format=html > coverage.html
+```
+
+Для генерации отчёта прямо в терминал:
+
+```bash
+llvm-cov report ./tests -instr-profile=coverage.profdata
+```
+
+> [!NOTE]
+> Ввиду того, что `g++` и `clang++` и их соответствующие утилиты используют разные алгоритмы подсчёта покрытия, их отчёты, скорее всего, будут отличаться.
 
 ## Использование
 
