@@ -1,0 +1,17 @@
+number = [0-9]+
+identifier = [a-zA-Z][a-zA-Z0-9]*
+
+<Program> = <FunctionDecl> <Program> | <StatementList>
+<StatementList> = <Statement> <StatementList> | EPSILON
+<Statement> = <Assignment> | <FunctionCall> | <IfStatement> | <WhileStatement>
+<Assignment> = 'let' identifier '=' <Expression> ';'
+<FunctionCall> = identifier '(' <Expression> ')' ';'
+<IfStatement> = 'if' '(' <Expression> ')' '{' <StatementList> '}' 'else' '{' <StatementList> '}'
+<WhileStatement> = 'while' '(' <Expression> ')' '{' <StatementList> '}'
+<Expression> = <Term> <ExpressionTail>
+<ExpressionTail> = '+' <Term> <ExpressionTail> | '-' <Term> <ExpressionTail> | EPSILON
+<Term> = <Factor> <TermTail>
+<TermTail> = '*' <Factor> <TermTail> | '/' <Factor> <TermTail> | EPSILON
+<Factor> = '(' <Expression> ')' | number | identifier
+<FunctionDecl> = 'function' identifier '(' ')' '{' <FunctionBody> '}'
+<FunctionBody> = <StatementList> | <StatementList> 'return' <Expression> ';'
