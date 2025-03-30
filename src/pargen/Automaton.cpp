@@ -2,6 +2,7 @@
 
 #include <boost/container_hash/hash_fwd.hpp>
 #include <cstddef>
+#include <queue>
 
 #include "GrammarAnalyzer.h"
 #include "Helpers.h"
@@ -110,31 +111,24 @@ std::set<Automaton::Item> Automaton::InternalClosure(const std::set<Item> &items
 void Automaton::BuildCanonicalCollection() {
     State initial_state = Closure({Item{0, 0, T_EOF}});
     states_.insert({0, initial_state});
-    std::set<State> c_set = {initial_state};
-    bool changed = true;
+    std::queue<size_t> state_queue;
+    state_queue.push(0);
     size_t state_idx = 1;
-    while (changed) {
-        changed = false;
-        std::set<State> new_states;
-        for (const auto &[idx, state] : states_) {
-            for (const Token &token : g_.tokens_) {
-                State goto_token_state = Goto(state, token);
-                if (!goto_token_state.empty()) {
-                    new_states.insert(goto_token_state);
+    while (!state_queue.empty()) {
+        size_t current_idx = state_queue.front();
+        state_queue.pop();
+        const State &current_state = states_.left.at(current_idx);
+        for (const Token &token : g_.tokens_) {
+            State goto_token_state = Goto(current_state, token);
+            if (!goto_token_state.empty()) {
+                if (states_.right.find(goto_token_state) ==
+                    states_.right.end()) {
+                    states_.insert({state_idx, goto_token_state});
+                    state_queue.push(state_idx);
+                    ++state_idx;
                 }
             }
         }
-        size_t prev = states_.size();
-        for (const State &state : new_states) {
-            if (states_.right.find(state) == states_.right.end()) {
-                states_.insert({state_idx, state});
-                ++state_idx;
-            }
-        }
-        if (states_.size() != prev) {
-            changed = true;
-        }
-        c_set.insert(new_states.begin(), new_states.end());
     }
 }
 
