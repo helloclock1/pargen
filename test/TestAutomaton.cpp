@@ -23,8 +23,8 @@ TEST_CASE("Automaton correctly computes closure", "[Automaton]") {
 
     Grammar g = gp.Get();
     GrammarAnalyzer ga(g);
-    ga.ComputeFirst();
-    ga.ComputeFollow();
+    // ga.ComputeFirst();
+    // ga.ComputeFollow();
 
     FirstSets first = ga.GetFirst();
     FollowSets follow = ga.GetFollow();
@@ -59,8 +59,8 @@ TEST_CASE("Automaton correctly computes closure: stress", "[Automaton]") {
 
     Grammar g = gp.Get();
     GrammarAnalyzer ga(g);
-    ga.ComputeFirst();
-    ga.ComputeFollow();
+    // ga.ComputeFirst();
+    // ga.ComputeFollow();
 
     FirstSets first = ga.GetFirst();
     FollowSets follow = ga.GetFollow();
@@ -126,8 +126,8 @@ TEST_CASE("Automaton correctly computes goto", "[Automaton]") {
 
     Grammar g = gp.Get();
     GrammarAnalyzer ga(g);
-    ga.ComputeFirst();
-    ga.ComputeFollow();
+    // ga.ComputeFirst();
+    // ga.ComputeFollow();
 
     FirstSets first = ga.GetFirst();
     FollowSets follow = ga.GetFollow();

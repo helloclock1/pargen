@@ -20,48 +20,50 @@ TEST_CASE("GrammarAnalyzer correctly computes sets 1", "[GrammarAnalyzer]") {
     REQUIRE_NOTHROW(gp.Parse());
 
     Grammar g = gp.Get();
-    GrammarAnalyzer ga(g);
-    REQUIRE_NOTHROW(ga.ComputeFirst());
-    REQUIRE_NOTHROW(ga.ComputeFollow());
+    try {
+        GrammarAnalyzer ga(g);
+        FirstSets first = ga.GetFirst();
+        FollowSets follow = ga.GetFollow();
 
-    FirstSets first = ga.GetFirst();
-    FollowSets follow = ga.GetFollow();
+        SECTION("FIRST sets") {
+            REQUIRE(
+                first[Terminal{"int", " "}] ==
+                std::set<Terminal>({Terminal{"int", " "}})
+            );
 
-    SECTION("FIRST sets") {
-        REQUIRE(
-            first[Terminal{"int", " "}] ==
-            std::set<Terminal>({Terminal{"int", " "}})
-        );
+            REQUIRE(
+                first[NonTerminal{"S"}] ==
+                std::set<Terminal>({Terminal{"int", " "}})
+            );
+            REQUIRE(
+                first[NonTerminal{"E"}] ==
+                std::set<Terminal>({EPSILON, Terminal{"+"}})
+            );
+            REQUIRE(
+                first[NonTerminal{"T"}] ==
+                std::set<Terminal>({Terminal{"int", " "}})
+            );
+        }
 
-        REQUIRE(
-            first[NonTerminal{"S"}] ==
-            std::set<Terminal>({Terminal{"int", " "}})
-        );
-        REQUIRE(
-            first[NonTerminal{"E"}] ==
-            std::set<Terminal>({EPSILON, Terminal{"+"}})
-        );
-        REQUIRE(
-            first[NonTerminal{"T"}] ==
-            std::set<Terminal>({Terminal{"int", " "}})
-        );
-    }
+        SECTION("FIRST set for sequence") {
+            REQUIRE(
+                ga.FirstForSequence({NonTerminal{"T"}, NonTerminal{"E"}}) ==
+                std::set<Terminal>({Terminal{"int", " "}})
+            );
+        }
 
-    SECTION("FIRST set for sequence") {
-        REQUIRE(
-            ga.FirstForSequence({NonTerminal{"T"}, NonTerminal{"E"}}) ==
-            std::set<Terminal>({Terminal{"int", " "}})
-        );
-    }
-
-    SECTION("FOLLOW sets") {
-        REQUIRE(follow[NonTerminal{"S'"}] == std::set<Terminal>({T_EOF}));
-        REQUIRE(follow[NonTerminal{"S"}] == std::set<Terminal>({T_EOF}));
-        REQUIRE(follow[NonTerminal{"E"}] == std::set<Terminal>({T_EOF}));
-        REQUIRE(
-            follow[NonTerminal{"T"}] ==
-            std::set<Terminal>({Terminal{"+"}, T_EOF})
-        );
+        SECTION("FOLLOW sets") {
+            REQUIRE(follow[NonTerminal{"S'"}] == std::set<Terminal>({T_EOF}));
+            REQUIRE(follow[NonTerminal{"S"}] == std::set<Terminal>({T_EOF}));
+            REQUIRE(follow[NonTerminal{"E"}] == std::set<Terminal>({T_EOF}));
+            REQUIRE(
+                follow[NonTerminal{"T"}] ==
+                std::set<Terminal>({Terminal{"+"}, T_EOF})
+            );
+        }
+    } catch (const std::exception &e) {
+        std::cerr << e.what() << std::endl;
+        FAIL("Exception thrown");
     }
 }
 
@@ -76,8 +78,6 @@ TEST_CASE("GrammarAnalyzer correctly computes sets 2", "[GrammarAnalyzer]") {
 
     Grammar g = gp.Get();
     GrammarAnalyzer ga(g);
-    ga.ComputeFirst();
-    ga.ComputeFollow();
 
     FirstSets first = ga.GetFirst();
     FollowSets follow = ga.GetFollow();
@@ -140,8 +140,6 @@ TEST_CASE(
 
     Grammar g = gp.Get();
     GrammarAnalyzer ga(g);
-    ga.ComputeFirst();
-    ga.ComputeFollow();
 
     FirstSets first = ga.GetFirst();
     FollowSets follow = ga.GetFollow();

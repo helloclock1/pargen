@@ -25,21 +25,12 @@ public:
     explicit GrammarAnalyzer(const Grammar &g);
 
     /**
-     * @brief Computes the FIRST sets for the grammar.
-     */
-    void ComputeFirst();
-    /**
      * @brief Using precomputed FIRST sets, computes the FIRST set for a
      * sequence of tokens.
      * @param seq A sequence of tokens.
      * @return The FIRST set for the given sequence of tokens.
      */
     std::set<Terminal> FirstForSequence(const std::vector<Token> &seq) const;
-
-    /**
-     * @brief Computes the FOLLOW sets for the grammar.
-     */
-    void ComputeFollow();
 
     /**
      * @brief Returns the computed FIRST sets.
@@ -53,6 +44,16 @@ public:
     const FollowSets &GetFollow() const;
 
 private:
+    /**
+     * @brief Computes the FIRST sets for the grammar.
+     */
+    void ComputeFirst();
+
+    /**
+     * @brief Computes the FOLLOW sets for the grammar.
+     */
+    void ComputeFollow();
+
     const Grammar &g_;
 
     FirstSets first_;

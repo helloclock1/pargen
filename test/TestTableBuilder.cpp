@@ -21,8 +21,6 @@ TEST_CASE(
 
     Grammar g = gp.Get();
     GrammarAnalyzer ga(g);
-    ga.ComputeFirst();
-    ga.ComputeFollow();
 
     ParserTables tables(g, ga);
     REQUIRE_NOTHROW(tables.Generate());
@@ -47,8 +45,6 @@ TEST_CASE("TableBuilder detects ambiguous grammar", "[TableBuilder]") {
 
     Grammar g = gp.Get();
     GrammarAnalyzer ga(g);
-    ga.ComputeFirst();
-    ga.ComputeFollow();
 
     ParserTables tables(g, ga);
     REQUIRE_THROWS_AS(tables.Generate(), TableGeneratorError);
