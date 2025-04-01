@@ -221,18 +221,25 @@ void ParserGenerator::Generate() {
     out << "    }\n";
     out << "};\n";
     out << "\n";
-    out << "class ParseTreeVisitor {\n";
+    out << "class ParseTreePreorderVisitor {\n";
     out << "public:\n";
     out << "    virtual void VisitTerminal(const Terminal &t) = 0;\n";
     out << "    virtual void VisitNonTerminal(const NonTerminal &nt) = 0;\n";
-    out << "    virtual ~ParseTreeVisitor() = default;\n";
+    out << "    virtual ~ParseTreePreorderVisitor() = default;\n";
+    out << "};\n";
+    out << "\n";
+    out << "class ParseTreePostorderVisitor {\n";
+    out << "public:\n";
+    out << "    virtual void VisitTerminal(const Terminal &t) = 0;\n";
+    out << "    virtual void VisitNonTerminal(const NonTerminal &nt) = 0;\n";
+    out << "    virtual ~ParseTreePostorderVisitor() = default;\n";
     out << "};\n";
     out << "\n";
     out << "struct ParseTreeNode {\n";
     out << "    Token value;\n";
     out << "    std::vector<std::shared_ptr<ParseTreeNode>> children;\n";
     out << "\n";
-    out << "    void Accept(ParseTreeVisitor &visitor) const "
+    out << "    void Accept(ParseTreePreorderVisitor &visitor) const "
            "{\n";
     out << "        if (std::holds_alternative<p::Terminal>(value)) {\n";
     out << "            visitor.VisitTerminal(std::get<Terminal>(value));\n";
@@ -242,6 +249,18 @@ void ParserGenerator::Generate() {
     out << "        }\n";
     out << "        for (const auto &child : children) {\n";
     out << "            child->Accept(visitor);\n";
+    out << "        }\n";
+    out << "    }\n";
+    out << "\n";
+    out << "    void Accept(ParseTreePostorderVisitor &visitor) const {\n";
+    out << "        for (const auto &child : children) {\n";
+    out << "            child->Accept(visitor);\n";
+    out << "        }\n";
+    out << "        if (std::holds_alternative<p::Terminal>(value)) {\n";
+    out << "            visitor.VisitTerminal(std::get<Terminal>(value));\n";
+    out << "        } else {\n";
+    out << "            "
+           "visitor.VisitNonTerminal(std::get<NonTerminal>(value));\n";
     out << "        }\n";
     out << "    }\n";
     out << "};\n";
@@ -255,7 +274,11 @@ void ParserGenerator::Generate() {
     out << "        return root_;\n";
     out << "    }\n";
     out << "\n";
-    out << "    void Accept(ParseTreeVisitor &visitor) const {\n";
+    out << "    void Accept(ParseTreePreorderVisitor &visitor) const {\n";
+    out << "        root_->Accept(visitor);\n";
+    out << "    }\n";
+    out << "\n";
+    out << "    void Accept(ParseTreePostorderVisitor &visitor) const {\n";
     out << "        root_->Accept(visitor);\n";
     out << "    }\n";
     out << "\n";
